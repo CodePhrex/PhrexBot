@@ -4,6 +4,7 @@ from threading import BoundedSemaphore, Event, Thread, Lock
 from time import monotonic
 from uuid import uuid4
 import requests
+from private_presentation import final_payload
 
 _pool = ThreadPoolExecutor(max_workers=1, thread_name_prefix="phrex-inference")
 _slots = BoundedSemaphore(3)
@@ -74,7 +75,7 @@ def submit_inference(router, question, body, respond, audit):
                 answer = "Local intelligence unavailable. Check model and host."
             done.set()
             with delivery_lock:
-                respond(text="Phrex intelligence", blocks=[{"type":"section","text":{"type":"plain_text","text":answer[:2900]}},{"type":"context","elements":[{"type":"mrkdwn","text":f"Request `{request_id}` | Elapsed: {monotonic()-accepted:.1f}s"}]}], response_type="ephemeral")
+                respond(**final_payload(answer, request_id, monotonic()-accepted))
         except Exception:
             audit.warning("natural response delivery unavailable")
         finally:
