@@ -127,7 +127,10 @@ def main():
     if not os.environ["SLACK_BOT_TOKEN"].startswith("xoxb-") or not os.environ["SLACK_APP_TOKEN"].startswith("xapp-"):
         raise ValueError("Invalid Slack token type")
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
+    from runtime_logging import configure
+    configure()
     audit = logging.getLogger("phrex.audit")
+    audit.info("Application runtime starting")
     app = App(token=os.environ["SLACK_BOT_TOKEN"])
     @app.action(re.compile(r"^open_repository_\d+$"))
     def open_repository(ack):
@@ -183,7 +186,13 @@ def main():
                 except Exception:
                     audit.warning("Discovery notification unavailable")
         start_discovery(os.environ["PHREX_PROJECT_DB"], token, notify)
-    SocketModeHandler(app, os.environ["SLACK_APP_TOKEN"]).start()
+    try:
+        SocketModeHandler(app, os.environ["SLACK_APP_TOKEN"]).start()
+    except Exception:
+        audit.error("Application runtime failed")
+        raise
+    finally:
+        audit.info("Application runtime stopped")
 
 if __name__ == "__main__":
     from runtime_lock import runtime_lock, AlreadyRunning
