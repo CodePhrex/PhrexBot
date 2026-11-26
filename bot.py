@@ -161,7 +161,8 @@ def main():
         if question.strip().lower().split()[:1] in [["history"], ["metrics"], ["diagnostics"], ["performance"]]:
             ack()
             from diagnostic_commands import diagnostic_command
-            respond(text=diagnostic_command(question, body), response_type="ephemeral")
+            from diagnostic_renderer import diagnostic_payload
+            respond(**diagnostic_payload(diagnostic_command(question, body)))
             return
         from execution_commands import execution_command
         from async_inference import registry
