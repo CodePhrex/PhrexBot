@@ -40,6 +40,12 @@ class BotTests(unittest.TestCase):
         self.assertNotIn("accessory", card)
     def test_block_limit(self):
         self.assertLessEqual(len(blocks("\n".join(["row"] * 100))), 50)
+    @patch("bot.github", return_value=[{"number":9,"requested_reviewers":[{"login":"reviewer"}]}])
+    def test_requested_reviews(self, github):
+        self.assertIn("1 requested reviewers/teams", report("approvals lab", {"lab":"CodePhrex/DroidLab"}, "token"))
+    @patch("bot.github", return_value=[{"security_advisory":{"severity":"critical"}}])
+    def test_severity(self, github):
+        self.assertIn("critical: 1", report("security lab", {"lab":"CodePhrex/DroidLab"}, "token"))
     def test_pending(self):
         self.assertIn("not implemented", report("tasks", {}, "token"))
 
