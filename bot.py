@@ -1,11 +1,13 @@
 import os
+import json
+from pathlib import Path
 import re
 import requests
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
 
-HELP = "PhrexBot | Intelligence on Command\n/phrex status [project]\n/phrex builds [project]\n/phrex progress [project]\n/phrex digest [project]\n/phrex alerts [project]\n/phrex approvals [project]\n/phrex security [project]\n/phrex help"
-PENDING = {"tasks"}
+HELP = "PhrexBot | Intelligence on Command\n/phrex status [project]\n/phrex builds [project]\n/phrex progress [project]\n/phrex digest [project]\n/phrex alerts [project]\n/phrex approvals [project]\n/phrex security [project]\n/phrex tasks\n/phrex help"
+PENDING = set()
 
 def parse_repos(raw):
     repos = {}
@@ -24,11 +26,37 @@ def github(repo, endpoint, token):
     response.raise_for_status()
     return response.json()
 
+def task_snapshot(path):
+    if not path:
+        return "Task snapshot unavailable: no reporting adapter configured."
+    try:
+        with Path(path).open(encoding="utf-8") as source:
+            raw = source.read(65537)
+        if len(raw) > 65536:
+            raise ValueError("Snapshot too large")
+        data = json.loads(raw)
+        stamp = datetime.fromisoformat(data["as_of"])
+        if stamp.tzinfo is None:
+            raise ValueError("Timestamp requires timezone")
+        age = (datetime.now(timezone.utc) - stamp).total_seconds()
+        if age < -300:
+            raise ValueError("Future snapshot")
+        lines = ["Local task snapshot | " + stamp.isoformat(), "STALE (>24 hours)" if age > 86400 else "Snapshot only; not live telemetry"]
+        for task in data["tasks"][:30]:
+            name = str(task["name"]).replace("\n", " ")[:100]
+            status = str(task["status"]).replace("\n", " ")[:80]
+            lines.append(name + ": " + status)
+        return "\n".join(lines)
+    except (OSError, ValueError, KeyError, TypeError, AttributeError):
+        return "Task snapshot unavailable: invalid or unreadable report."
+
 def report(command, repos, token):
     parts = command.lower().split()
     action = parts[0] if parts else "help"
     if action == "help":
         return HELP
+    if action == "tasks":
+        return task_snapshot(os.getenv("PHREX_TASK_SNAPSHOT")) if len(parts) == 1 else HELP
     if action in PENDING:
         return "This command is not implemented yet."
     if action not in {"status", "builds", "progress", "digest", "alerts", "approvals", "security"} or len(parts) > 2:
