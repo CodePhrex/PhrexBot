@@ -4,8 +4,8 @@ import requests
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
 
-HELP = "PhrexBot | Intelligence on Command\n/phrex status [project]\n/phrex builds [project]\n/phrex progress [project]\n/phrex digest [project]\n/phrex help"
-PENDING = {"alerts", "approvals", "tasks", "security"}
+HELP = "PhrexBot | Intelligence on Command\n/phrex status [project]\n/phrex builds [project]\n/phrex progress [project]\n/phrex digest [project]\n/phrex alerts [project]\n/phrex approvals [project]\n/phrex security [project]\n/phrex help"
+PENDING = {"tasks"}
 
 def parse_repos(raw):
     repos = {}
@@ -31,7 +31,7 @@ def report(command, repos, token):
         return HELP
     if action in PENDING:
         return "This command is not implemented yet."
-    if action not in {"status", "builds", "progress", "digest"} or len(parts) > 2:
+    if action not in {"status", "builds", "progress", "digest", "alerts", "approvals", "security"} or len(parts) > 2:
         return HELP
     if len(parts) == 2 and parts[1] not in repos:
         return "Unknown project. Available: " + ", ".join(repos)
@@ -43,6 +43,17 @@ def report(command, repos, token):
             if action == "status":
                 data = github(repo, "pulls?state=open&per_page=1", token)
                 state = "Open pull requests present" if data else "No open pull requests"
+            elif action == "approvals":
+                data = github(repo, "pulls?state=open&per_page=10", token)
+                candidates = [f"#{p['number']}" for p in data if not p.get("draft")]
+                state = "Open non-draft PRs (first 10, review status not verified): " + (", ".join(candidates) or "none returned")
+            elif action == "alerts":
+                data = github(repo, "actions/runs?status=completed&per_page=10", token).get("workflow_runs", [])
+                failed = [str(r["id"]) for r in data if r.get("conclusion") in {"failure", "timed_out", "action_required"}]
+                state = "Failed/action-required runs among latest 10 completed: " + (", ".join(failed) or "none returned")
+            elif action == "security":
+                data = github(repo, "dependabot/alerts?state=open&per_page=10", token)
+                state = "Open Dependabot alerts returned (max 10): " + str(len(data))
             elif action == "progress":
                 data = github(repo, "commits?per_page=1", token)
                 state = "Latest commit " + data[0]["sha"][:7] if data else "No commits returned"
