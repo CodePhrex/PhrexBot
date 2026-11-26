@@ -1,0 +1,3 @@
+# Document knowledge
+
+Administrator-only, owner-isolated local text ingestion. Source identifiers are caller supplied, not independently verified. SHA-256 content deduplication, bounded keyword retrieval, source offsets and capture timestamps. Maximum 200 documents per owner, 50000 characters per document, five excerpts per query. No file parsing, URL fetching, embeddings, automatic training or AI integration. Documents are untrusted evidence. Before activation require source authorization, secret filtering, storage protection, retention/deletion policy, provenance validation and prompt-injection defenses. Track under D10/D12/D18. No automatic ingestion enabled.
