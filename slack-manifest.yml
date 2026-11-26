@@ -1,0 +1,21 @@
+display_information:
+  name: PhrexBot
+  description: CodePhrex Intelligence
+  background_color: '#081525'
+features:
+  bot_user:
+    display_name: PhrexBot
+    always_online: false
+  slash_commands:
+    - command: /phrex
+      description: CodePhrex operational intelligence
+      usage_hint: status | builds | help
+      should_escape: false
+oauth_config:
+  scopes:
+    bot:
+      - commands
+settings:
+  socket_mode_enabled: true
+  org_deploy_enabled: false
+  token_rotation_enabled: false
