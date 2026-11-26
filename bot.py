@@ -186,4 +186,10 @@ def main():
     SocketModeHandler(app, os.environ["SLACK_APP_TOKEN"]).start()
 
 if __name__ == "__main__":
-    main()
+    from runtime_lock import runtime_lock, AlreadyRunning
+    try:
+        with runtime_lock():
+            main()
+    except AlreadyRunning:
+        logging.error("Phrex runtime lock unavailable; launch refused")
+        raise SystemExit(3)
