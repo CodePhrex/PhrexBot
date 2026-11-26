@@ -45,3 +45,10 @@ class RetryPolicy:
                     del self.records[root_id]
                 else:
                     r["busy"]=False
+
+    def rollback(self, root_id):
+        with self.lock:
+            r=self.records.get(root_id)
+            if r and r["busy"]:
+                r["busy"]=False
+                r["count"]-=1
