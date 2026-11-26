@@ -144,6 +144,20 @@ def main():
             respond(text="Not authorized.", response_type="ephemeral")
             return
         question = body.get("text", "")
+        if question.strip().lower().split()[:1] == ["retry"]:
+            ack()
+            from async_inference import retry_policy, submit_inference
+            parts = question.strip().lower().split()
+            if router is None or body.get("user_id") not in administrators or len(parts) != 2 or not re.fullmatch(r"[a-f0-9]{12}", parts[1]):
+                respond(text="Retry unavailable.", response_type="ephemeral")
+                return
+            try:
+                original = retry_policy.reserve(parts[1], body.get("team_id"), body.get("user_id"))
+            except (PermissionError, RuntimeError):
+                respond(text="Retry unavailable.", response_type="ephemeral")
+                return
+            submit_inference(router, original, body, respond, audit, root_id=parts[1])
+            return
         from execution_commands import execution_command
         from async_inference import registry
         if question.strip().lower().split()[:1] in [["queue"], ["executing"], ["cancel"], ["health"]]:
