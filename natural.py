@@ -20,6 +20,7 @@ def project_evidence(question, path):
     aliases = store.list_projects()[:100]
     normalized = re.sub(r'[^a-z0-9]', '', question.lower())
     matches = [a for a in aliases if len(a)>=3 and re.sub(r'[^a-z0-9]', '', a) in normalized]
+    matches = [a for a in matches if not any(a != other and a in other for other in matches)]
     records = []
     for alias in (matches or aliases)[:20]:
         record = store.get(alias)
