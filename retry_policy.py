@@ -1,6 +1,7 @@
 """Temporary owner-scoped retry storage; never persist or log prompts."""
 from threading import Lock
 from time import monotonic
+from access_policy import contains_known_secret
 
 class RetryPolicy:
     def __init__(self):
@@ -9,6 +10,8 @@ class RetryPolicy:
 
     def remember_failure(self, root_id, team, user, question):
         if not all(isinstance(x,str) and x for x in (root_id,team,user,question)) or len(question)>8000:
+            return False
+        if team == '*' or user == '*' or contains_known_secret(question):
             return False
         with self.lock:
             now = monotonic()
@@ -24,6 +27,10 @@ class RetryPolicy:
         for key in list(self.records):
             if self.records[key]["expires"] <= now:
                 del self.records[key]
+
+    def prune_expired(self):
+        with self.lock:
+            self._prune(monotonic())
 
     def reserve(self, root_id, team, user):
         with self.lock:
