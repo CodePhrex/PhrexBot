@@ -174,6 +174,15 @@ def main():
     if model and administrators:
         from conversation import register_conversation
         register_conversation(app, team, administrators, model)
+    if os.getenv("PHREX_DISCOVERY_ENABLED") == "1" and os.getenv("PHREX_PROJECT_DB"):
+        from discovery import start_discovery
+        def notify(count):
+            for admin in administrators:
+                try:
+                    app.client.chat_postMessage(channel=admin,text=f"Phrex repository discovery: {count} newly indexed repositories. Initial indexing may include existing projects.",mrkdwn=False)
+                except Exception:
+                    audit.warning("Discovery notification unavailable")
+        start_discovery(os.environ["PHREX_PROJECT_DB"], token, notify)
     SocketModeHandler(app, os.environ["SLACK_APP_TOKEN"]).start()
 
 if __name__ == "__main__":
