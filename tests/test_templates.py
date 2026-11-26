@@ -12,6 +12,6 @@ class TemplateTests(unittest.TestCase):
         self.assertEqual(template_for('unknown'), TEMPLATES['help'])
     def test_legacy_heading_removed(self):
         result = blocks('CODEPHREX | COMMAND CENTER\nlab: Data unavailable', 'status')
-        self.assertEqual(result[2]['text']['text'], 'lab: Data unavailable')
+        self.assertEqual(result[2]['text']['text'], 'lab: Intelligence unavailable. Verify repository access and API connectivity.')
     def test_limit(self):
         self.assertLessEqual(len(blocks('\n'.join(['row'] * 100), 'digest')), 50)
