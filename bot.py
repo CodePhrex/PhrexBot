@@ -144,6 +144,12 @@ def main():
             respond(text="Not authorized.", response_type="ephemeral")
             return
         question = body.get("text", "")
+        from execution_commands import execution_command
+        from async_inference import registry
+        if question.strip().lower().split()[:1] in [["queue"], ["executing"], ["cancel"], ["health"]]:
+            ack()
+            respond(text=execution_command(registry, question, body), response_type="ephemeral")
+            return
         if is_natural(question) and router is not None and body.get("user_id") in administrators:
             ack({"response_type": "ephemeral", "text": ":phrex-pending: *Request received.* Waiting for the intelligence engine. Please allow time for processing."})
         else:

@@ -51,3 +51,7 @@ class ExecutionRegistry:
             for key in list(self.records):
                 if self.records[key]["state"] in ("completed","failed","cancelled"):
                     del self.records[key]
+
+    def owned(self, team, user):
+        with self.lock:
+            return [(key, dict(value)) for key,value in self.records.items() if (value["team"],value["user"]) == (team,user)]
