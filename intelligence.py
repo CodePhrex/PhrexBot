@@ -1,5 +1,6 @@
 """Optional local inference. No model-driven execution or credential access."""
 import json
+from time import monotonic
 import requests
 from streaming import collect_stream
 
@@ -28,6 +29,7 @@ class LocalIntelligence:
         context = json.dumps(evidence, ensure_ascii=False)
         if len(context)>24000:
             raise ValueError('Evidence exceeds context limit')
+        deadline = monotonic() + 180
         response = self.session.post('http://127.0.0.1:11434/api/chat',
             json={'model':self.model,'stream':on_chunk is not None,'messages':[
                 {'role':'system','content':SYSTEM},
@@ -38,7 +40,7 @@ class LocalIntelligence:
             with response:
                 if response.status_code != 200:
                     raise RuntimeError('Local inference unavailable')
-                return collect_stream(response.iter_lines(), on_chunk)
+                return collect_stream(response.iter_lines(), on_chunk, deadline=deadline)
         if response.status_code != 200:
             raise RuntimeError('Local inference unavailable')
         content = response.json().get('message',{}).get('content')
