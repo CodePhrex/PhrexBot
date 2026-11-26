@@ -1,0 +1,3 @@
+# Slack knowledge foundation
+
+The curated index routes questions to official Slack Help, Marketplace and developer documentation. It is not an ingested documentation corpus; links have not been live validated. No article content is represented as retrieved. Future ingestion must validate official origins, respect access and licensing, store source URL and retrieval date, treat retrieved text as untrusted, and distinguish plan-specific guidance from verified workspace settings. Article retrieval, freshness, citations, semantic search and Slack/AI integration remain deferred under D17 and D12 in TECHNICAL_DEBT.md.
