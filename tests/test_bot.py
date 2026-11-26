@@ -22,7 +22,7 @@ class BotTests(unittest.TestCase):
     def test_progress(self, github):
         self.assertIn("abcdef1", report("progress lab", {"lab":"CodePhrex/DroidLab"}, "token"))
     def test_blocks(self):
-        self.assertEqual(blocks("sample")[1]["text"]["type"], "plain_text")
+        self.assertEqual(blocks("sample")[2]["text"]["type"], "plain_text")
     @patch("bot.github", return_value={"workflow_runs":[{"id":123,"conclusion":"failure"},{"id":456,"conclusion":"success"}]})
     def test_alerts(self, github):
         result = report("alerts lab", {"lab":"CodePhrex/DroidLab"}, "token")
@@ -37,10 +37,10 @@ class BotTests(unittest.TestCase):
     def test_security(self, github):
         self.assertIn("max 10): 1", report("security lab", {"lab":"CodePhrex/DroidLab"}, "token"))
     def test_project_card(self):
-        card = blocks("lab: success | https://github.com/CodePhrex/DroidLab")[1]
+        card = blocks("lab: success | https://github.com/CodePhrex/DroidLab")[2]
         self.assertEqual(card["accessory"]["url"], "https://github.com/CodePhrex/DroidLab")
     def test_untrusted_link(self):
-        card = blocks("lab: success | https://example.com/other")[1]
+        card = blocks("lab: success | https://example.com/other")[2]
         self.assertNotIn("accessory", card)
     def test_block_limit(self):
         self.assertLessEqual(len(blocks("\n".join(["row"] * 100))), 50)
