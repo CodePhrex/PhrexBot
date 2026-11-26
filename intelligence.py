@@ -1,6 +1,7 @@
 """Optional local inference. No model-driven execution or credential access."""
 import json
 import requests
+from streaming import collect_stream
 
 SYSTEM = """You are Phrex, CodePhrex Intelligence. Speak naturally, professionally and concisely.
 For greetings, thanks and casual conversation, respond warmly and directly without requiring evidence.
@@ -19,7 +20,7 @@ class LocalIntelligence:
         self.model = model
         self.session = session or requests.Session()
 
-    def answer(self, question, evidence, *, user_id, team_id, expected_team, administrators):
+    def answer(self, question, evidence, *, user_id, team_id, expected_team, administrators, on_chunk=None):
         if not expected_team or team_id != expected_team or not user_id or user_id == '*' or user_id not in administrators:
             raise PermissionError('Intelligence requires explicit administrator authorization')
         if not isinstance(question,str) or not question.strip() or len(question)>4000:
@@ -28,11 +29,16 @@ class LocalIntelligence:
         if len(context)>24000:
             raise ValueError('Evidence exceeds context limit')
         response = self.session.post('http://127.0.0.1:11434/api/chat',
-            json={'model':self.model,'stream':False,'messages':[
+            json={'model':self.model,'stream':on_chunk is not None,'messages':[
                 {'role':'system','content':SYSTEM},
                 {'role':'user','content':json.dumps({'question':question,'evidence':evidence},ensure_ascii=False)}],
                 'options':{'num_predict':256,'num_ctx':4096,'temperature':0.2}},
-            timeout=(5,180),allow_redirects=False)
+            timeout=(5,180),allow_redirects=False, **({'stream':True} if on_chunk is not None else {}))
+        if on_chunk is not None:
+            with response:
+                if response.status_code != 200:
+                    raise RuntimeError('Local inference unavailable')
+                return collect_stream(response.iter_lines(), on_chunk)
         if response.status_code != 200:
             raise RuntimeError('Local inference unavailable')
         content = response.json().get('message',{}).get('content')
