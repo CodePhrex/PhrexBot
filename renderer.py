@@ -4,6 +4,7 @@ from personality import describe
 from templates import template_for
 from emoji import command_emoji
 import re
+from links import github_link
 from datetime import datetime, timezone
 from brand import NAME, DIVISION, TAGLINE, EMOJI
 
@@ -24,6 +25,27 @@ def report_symbol(state, command):
             return EMOJI["critical"]
     return indicator(state, command) or ":information_source:"
 
+def workflow_links(url, state, command):
+    if command != "alerts":
+        return ""
+    match = re.fullmatch(r"https://github\.com/CodePhrex/([A-Za-z0-9_.-]+)", url)
+    if not match:
+        return ""
+    try:
+        base = github_link(match.group(1), "builds")
+    except ValueError:
+        return ""
+    runs = re.findall(r"\b([0-9]{1,20}) \((failure|timed_out|action_required)\)", state)
+    seen = set()
+    links = []
+    for run, outcome in runs:
+        if run not in seen:
+            seen.add(run)
+            links.append(f"<{base}/runs/{run}|Run {run}>")
+        if len(links) == 6:
+            break
+    return "\n*Investigate:* " + " · ".join(links) if links else ""
+
 def blocks(text, command='help'):
     heading, classification = template_for(command)
     output = [{"type": "header", "text": {"type": "plain_text", "text": heading}}]
@@ -38,7 +60,7 @@ def blocks(text, command='help'):
             symbol = report_symbol(state, command)
             state = describe(state, command)
             label, target = destination(url, command)
-            output.append({"type": "section", "text": {"type": "mrkdwn", "verbatim": True, "text": symbol + " *" + escape_slack(alias.upper()[:100]) + "*\n" + escape_slack(state[:400])}, "accessory": {"type": "button", "text": {"type": "plain_text", "text": label}, "url": target, "action_id": "open_repository_" + str(len(output))}})
+            output.append({"type": "section", "text": {"type": "mrkdwn", "verbatim": True, "text": symbol + " *" + escape_slack(alias.upper()[:100]) + "*\n" + escape_slack(state[:400]) + workflow_links(url, match.group(2), command)}, "accessory": {"type": "button", "text": {"type": "plain_text", "text": label}, "url": target, "action_id": "open_repository_" + str(len(output))}})
             if indicator(match.group(2), command) and len(output) < 45:
                 output.append({"type": "context", "elements": [{"type": "mrkdwn", "text": symbol + " Workflow result"}]})
         else:
