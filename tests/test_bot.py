@@ -46,8 +46,12 @@ class BotTests(unittest.TestCase):
     @patch("bot.github", return_value=[{"security_advisory":{"severity":"critical"}}])
     def test_severity(self, github):
         self.assertIn("critical: 1", report("security lab", {"lab":"CodePhrex/DroidLab"}, "token"))
-    def test_pending(self):
-        self.assertIn("not implemented", report("tasks", {}, "token"))
+    @patch.dict("os.environ", {"PHREX_TASK_SNAPSHOT": ""})
+    def test_tasks_unconfigured(self):
+        self.assertIn("unavailable", report("tasks", {}, "token"))
+    def test_tasks_invalid(self):
+        from bot import task_snapshot
+        self.assertIn("unavailable", task_snapshot("/nonexistent/task.json"))
 
 if __name__ == "__main__":
     unittest.main()
