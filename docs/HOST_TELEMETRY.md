@@ -1,0 +1,3 @@
+# Host telemetry
+
+Local psutil snapshot: hostname, OS, CPU, RAM, disk capacity, interface link status, uptime and first 100 accessible process names and IDs. No command lines, environment variables, credentials, IP addresses or file contents. Explicit administrator IDs and exact workspace match required; wildcard access is not accepted. Caller must supply authenticated Slack identity and trusted administrator configuration, not user-provided arguments. No Slack command is wired yet. Windows service inventory, installed software and diagnostic interpretation are deferred. No remote execution, process termination or system changes. Validate on the Windows host before production use.
