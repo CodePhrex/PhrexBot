@@ -11,6 +11,7 @@ from retry_policy import RetryPolicy
 retry_policy = RetryPolicy()
 from private_presentation import final_payload
 from execution_deadline import check_deadline, ExecutionCancelled
+from execution_telemetry import record_execution
 
 _pool = ThreadPoolExecutor(max_workers=1, thread_name_prefix="phrex-inference")
 _slots = BoundedSemaphore(3)
@@ -126,6 +127,7 @@ def submit_inference(router, question, body, respond, audit, root_id=None):
                     retry_policy.finish(root_id, not retryable)
             finally:
                 _slots.release()
+            record_execution(request_id, body.get('team_id'), body.get('user_id'), outcome, started-accepted, monotonic()-started, audit)
             audit.info("Inference elapsed seconds: %.2f", monotonic()-started)
     try:
         _pool.submit(work)
