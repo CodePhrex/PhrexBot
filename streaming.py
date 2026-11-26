@@ -1,10 +1,13 @@
 """Parse Ollama NDJSON streams without exposing partial operational answers."""
 import json
+from time import monotonic
 
-def collect_stream(lines, on_chunk=None, limit=12000):
+def collect_stream(lines, on_chunk=None, limit=12000, deadline=None):
     parts = []
     size = 0
     for line in lines:
+        if deadline is not None and monotonic() >= deadline:
+            raise TimeoutError('Inference stream deadline exceeded')
         if not line:
             continue
         if len(line) > 65536:
