@@ -3,6 +3,7 @@ import re
 import os
 import json
 from knowledge import ProjectStore
+from github_intelligence import GitHubIntelligence
 from threading import BoundedSemaphore
 from security import EventGate
 from host_telemetry import snapshot
@@ -24,6 +25,12 @@ def project_evidence(question, path):
     records = []
     for alias in (matches or aliases)[:20]:
         record = store.get(alias)
+        if record:
+            for key in ('specification','repository_document'):
+                doc=record['profile'].get(key)
+                if isinstance(doc,dict) and isinstance(doc.get('text'),str):
+                    doc['text']=doc['text'][:2500]
+                    doc['retrieval_excerpt']=True
         if record and len(json.dumps(records+[record],ensure_ascii=False))<=10000:
             records.append(record)
     return {'records':records,'scope':'Local documented profiles, not live implementation verification','registered_aliases':aliases,'truncated':len(matches or aliases)>len(records)}
@@ -59,6 +66,20 @@ class NaturalRouter:
             if re.search(r'\b(projects?|github|builds?|progress|status|commits?|workflow|repository|repositories|droid|chirp|phrexnet|lottery|tinymobb)\b',q):
                 evidence['github_digest']=self.report('digest',dict(list(self.repos.items())[:10]),self.token)
                 evidence['github_progress']=self.report('progress',dict(list(self.repos.items())[:10]),self.token)
+            if re.search(r'\b(github|commits?|releases?|builds?|progress|status|activity)\b',q):
+                live=[]
+                for record in evidence.get('project_knowledge',{}).get('records',[])[:2]:
+                    url=record.get('profile',{}).get('repository','')
+                    match=re.fullmatch(r'https://github\.com/CodePhrex/([A-Za-z0-9_.-]+)',url)
+                    if not match:
+                        continue
+                    try:
+                        data=GitHubIntelligence(self.token).activity(match.group(1),'commits')
+                        items=data.get('data',[]) if isinstance(data,dict) else []
+                        live.append({'repository':match.group(1),'source':'GitHub commits API','commits':[{'sha':x.get('sha'),'date':x.get('commit',{}).get('committer',{}).get('date')} for x in items[:3]],'scope':'Latest returned commits; not proof of completion'})
+                    except Exception:
+                        live.append({'repository':match.group(1),'availability':'Unavailable'})
+                evidence['targeted_repository_activity']=live
             return self.ai.answer(question,evidence,user_id=user,team_id=team,expected_team=self.team,administrators=self.admins)
         finally:
             self.slots.release()
