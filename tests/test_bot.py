@@ -3,6 +3,10 @@ from unittest.mock import patch
 from bot import authorized, parse_repos, report, blocks
 
 class BotTests(unittest.TestCase):
+    def test_workspace_wildcard(self):
+        self.assertTrue(authorized({'team_id':'T1','user_id':'U2'}, 'T1', {'*'}))
+        self.assertFalse(authorized({'team_id':'T2','user_id':'U2'}, 'T1', {'*'}))
+        self.assertFalse(authorized({'team_id':'T1'}, 'T1', {'*'}))
     def test_auth(self):
         self.assertTrue(authorized({"team_id":"T","user_id":"U"}, "T", {"U"}))
         self.assertFalse(authorized({"team_id":"X","user_id":"U"}, "T", {"U"}))
