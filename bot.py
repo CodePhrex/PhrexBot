@@ -7,7 +7,7 @@ import requests
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
 
-HELP = "PhrexBot | Intelligence on Command\n/phrex status [project]\n/phrex builds [project]\n/phrex progress [project]\n/phrex digest [project]\n/phrex alerts [project]\n/phrex approvals [project]\n/phrex security [project]\n/phrex tasks\n/phrex help"
+HELP = "Phrex | Intelligence on Command\n/phrex status [project]\n/phrex builds [project]\n/phrex progress [project]\n/phrex digest [project]\n/phrex alerts [project]\n/phrex approvals [project]\n/phrex security [project]\n/phrex tasks\n/phrex dashboard (administrator)\n/phrex help"
 PENDING = set()
 
 def parse_repos(raw):
@@ -140,6 +140,17 @@ def main():
             respond(text="Not authorized.", response_type="ephemeral")
             return
         audit.info("authorized command received")
+        if body.get("text", "").strip().lower() == "dashboard":
+            from executive import dashboard, dashboard_blocks
+            try:
+                rows, links = dashboard(user=body.get("user_id"), team=body.get("team_id"),
+                    expected_team=team, admins=administrators, repos=repos, token=token,
+                    report=report, task_path=os.getenv("PHREX_TASK_SNAPSHOT"))
+            except PermissionError:
+                respond(text="Administrator access required.", response_type="ephemeral")
+                return
+            respond(text="Phrex executive intelligence", blocks=dashboard_blocks(rows,links), response_type="ephemeral")
+            return
         result = report(body.get("text", ""), repos, token)
         respond(text=result, blocks=blocks(result, body.get('text', '')), response_type="ephemeral")
     model = os.getenv("PHREX_OLLAMA_MODEL", "").strip()
