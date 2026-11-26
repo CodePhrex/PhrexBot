@@ -4,6 +4,9 @@ from threading import BoundedSemaphore, Event, Thread, Lock
 from time import monotonic
 from uuid import uuid4
 import requests
+from execution_registry import ExecutionRegistry
+
+registry = ExecutionRegistry()
 from private_presentation import final_payload
 
 _pool = ThreadPoolExecutor(max_workers=1, thread_name_prefix="phrex-inference")
@@ -14,6 +17,13 @@ def submit_inference(router, question, body, respond, audit):
     accepted = monotonic()
     if not _slots.acquire(blocking=False):
         respond(text="Phrex intelligence queue is full. Please retry shortly.", response_type="ephemeral")
+        return
+    try:
+        registry.remove_finished()
+        registry.register(request_id, body.get('team_id'), body.get('user_id'))
+    except Exception:
+        _slots.release()
+        respond(text='Request registration unavailable.', response_type='ephemeral')
         return
     def work():
         started = monotonic()
@@ -41,7 +51,9 @@ def submit_inference(router, question, body, respond, audit):
                     audit.warning('natural progress delivery unavailable')
                     return
         pulse = Thread(target=heartbeat, daemon=True, name='phrex-heartbeat')
+        outcome = 'failed'
         try:
+            registry.transition(request_id, 'executing')
             pulse.start()
             try:
                 notify(f":phrex-ai: *Processing intelligence* | Request `{request_id}`\nAnalyzing your request. Queue wait: {started-accepted:.1f}s.")
@@ -59,9 +71,11 @@ def submit_inference(router, question, body, respond, audit):
                 nonlocal first_token
                 if not first_token:
                     first_token = True
+                    registry.transition(request_id, 'generating')
                     progress('Generating response')
             try:
                 answer = router.answer(question, body, progress=progress, on_chunk=on_chunk)
+                outcome = 'completed'
             except PermissionError:
                 answer = "Administrator access required."
             except requests.exceptions.Timeout:
@@ -77,13 +91,20 @@ def submit_inference(router, question, body, respond, audit):
             with delivery_lock:
                 respond(**final_payload(answer, request_id, monotonic()-accepted))
         except Exception:
+            outcome = 'failed'
             audit.warning("natural response delivery unavailable")
         finally:
             done.set()
-            _slots.release()
+            try:
+                registry.transition(request_id, outcome)
+            finally:
+                _slots.release()
             audit.info("Inference elapsed seconds: %.2f", monotonic()-started)
     try:
         _pool.submit(work)
     except Exception:
-        _slots.release()
+        try:
+            registry.transition(request_id, 'failed')
+        finally:
+            _slots.release()
         raise
