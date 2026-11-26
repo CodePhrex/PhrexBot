@@ -7,22 +7,29 @@ import requests
 from execution_registry import ExecutionRegistry
 
 registry = ExecutionRegistry()
+from retry_policy import RetryPolicy
+retry_policy = RetryPolicy()
 from private_presentation import final_payload
 from execution_deadline import check_deadline, ExecutionCancelled
 
 _pool = ThreadPoolExecutor(max_workers=1, thread_name_prefix="phrex-inference")
 _slots = BoundedSemaphore(3)
 
-def submit_inference(router, question, body, respond, audit):
+def submit_inference(router, question, body, respond, audit, root_id=None):
     request_id = uuid4().hex[:12]
     accepted = monotonic()
+    def rollback():
+        if root_id:
+            retry_policy.rollback(root_id)
     if not _slots.acquire(blocking=False):
+        rollback()
         respond(text="Phrex intelligence queue is full. Please retry shortly.", response_type="ephemeral")
         return
     try:
         registry.remove_finished()
         registry.register(request_id, body.get('team_id'), body.get('user_id'))
     except Exception:
+        rollback()
         _slots.release()
         respond(text='Request registration unavailable.', response_type='ephemeral')
         return
@@ -55,6 +62,7 @@ def submit_inference(router, question, body, respond, audit):
                     return
         pulse = Thread(target=heartbeat, daemon=True, name='phrex-heartbeat')
         outcome = 'failed'
+        retryable = False
         try:
             registry.transition(request_id, 'executing')
             pulse.start()
@@ -89,14 +97,21 @@ def submit_inference(router, question, body, respond, audit):
             except PermissionError:
                 answer = "Administrator access required."
             except (TimeoutError, requests.exceptions.Timeout):
+                retryable = True
                 audit.warning("natural intelligence unavailable")
                 answer = "The local intelligence request timed out. Please retry with a narrower question."
             except requests.exceptions.ConnectionError:
+                retryable = True
                 audit.warning("natural intelligence unavailable")
                 answer = "The local intelligence service could not be reached. Check Ollama availability."
             except Exception:
                 audit.warning("natural intelligence unavailable")
                 answer = "Local intelligence unavailable. Check model and host."
+            if retryable:
+                if not root_id and retry_policy.remember_failure(request_id, body.get('team_id'), body.get('user_id'), question):
+                    answer += f' Retry: /phrex retry {request_id}'
+                elif root_id:
+                    answer += f' Original request: {root_id}'
             done.set()
             with delivery_lock:
                 respond(**final_payload(answer, request_id, monotonic()-accepted))
@@ -107,12 +122,15 @@ def submit_inference(router, question, body, respond, audit):
             done.set()
             try:
                 registry.transition(request_id, outcome)
+                if root_id:
+                    retry_policy.finish(root_id, not retryable)
             finally:
                 _slots.release()
             audit.info("Inference elapsed seconds: %.2f", monotonic()-started)
     try:
         _pool.submit(work)
     except Exception:
+        rollback()
         try:
             registry.transition(request_id, 'failed')
         finally:
