@@ -18,7 +18,9 @@ class LocalIntelligence:
     def __init__(self, model, session=None):
         if not isinstance(model,str) or not model.strip():
             raise ValueError('An installed Ollama model must be configured')
-        self.model = model
+        self.model = model.strip()
+        if self.model.lower().endswith((':cloud', '-cloud')):
+            raise ValueError('Cloud models require the separate authorized Neural Engine adapter')
         self.session = session or requests.Session()
 
     def answer(self, question, evidence, *, user_id, team_id, expected_team, administrators, on_chunk=None):
