@@ -1,18 +1,25 @@
-"""Bounded asynchronous slash-command inference."""
+"""Bounded asynchronous inference with private execution feedback."""
 from concurrent.futures import ThreadPoolExecutor
 from threading import BoundedSemaphore
 from time import monotonic
+from uuid import uuid4
 
 _pool = ThreadPoolExecutor(max_workers=1, thread_name_prefix="phrex-inference")
-_slots = BoundedSemaphore(1)
+_slots = BoundedSemaphore(3)
 
 def submit_inference(router, question, body, respond, audit):
+    request_id = uuid4().hex[:12]
+    accepted = monotonic()
     if not _slots.acquire(blocking=False):
-        respond(text="Phrex is processing another intelligence request. Please retry shortly.", response_type="ephemeral")
+        respond(text="Phrex intelligence queue is full. Please retry shortly.", response_type="ephemeral")
         return
     def work():
         started = monotonic()
         try:
+            try:
+                respond(text=f":phrex-ai: *Processing intelligence* | Request `{request_id}`\nAnalyzing your request. Queue wait: {started-accepted:.1f}s.", response_type="ephemeral")
+            except Exception:
+                audit.warning("natural progress delivery unavailable")
             try:
                 answer = router.answer(question, body)
             except PermissionError:
@@ -20,12 +27,12 @@ def submit_inference(router, question, body, respond, audit):
             except Exception:
                 audit.warning("natural intelligence unavailable")
                 answer = "Local intelligence unavailable. Check model and host."
-            respond(text="Phrex intelligence", blocks=[{"type":"section","text":{"type":"plain_text","text":answer[:2900]}}], response_type="ephemeral")
+            respond(text="Phrex intelligence", blocks=[{"type":"section","text":{"type":"plain_text","text":answer[:2900]}},{"type":"context","elements":[{"type":"mrkdwn","text":f"Request `{request_id}` | Elapsed: {monotonic()-accepted:.1f}s"}]}], response_type="ephemeral")
         except Exception:
             audit.warning("natural response delivery unavailable")
         finally:
-            audit.info("Inference elapsed seconds: %.2f", monotonic()-started)
             _slots.release()
+            audit.info("Inference elapsed seconds: %.2f", monotonic()-started)
     try:
         _pool.submit(work)
     except Exception:

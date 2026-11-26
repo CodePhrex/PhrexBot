@@ -138,11 +138,16 @@ def main():
     from natural import NaturalRouter, is_natural
     @app.command("/phrex")
     def phrex(ack, body, respond):
-        ack()
         if not authorized(body, team, users):
+            ack()
             audit.warning("command denied")
             respond(text="Not authorized.", response_type="ephemeral")
             return
+        question = body.get("text", "")
+        if is_natural(question) and router is not None and body.get("user_id") in administrators:
+            ack({"response_type": "ephemeral", "text": ":phrex-pending: *Request received.* Waiting for the intelligence engine. Please allow time for processing."})
+        else:
+            ack()
         audit.info("authorized command received")
         if body.get("text", "").strip().lower() == "dashboard":
             from executive import dashboard, dashboard_blocks
