@@ -8,7 +8,7 @@ from execution_registry import ExecutionRegistry
 
 registry = ExecutionRegistry()
 from private_presentation import final_payload
-from execution_deadline import check_deadline
+from execution_deadline import check_deadline, ExecutionCancelled
 
 _pool = ThreadPoolExecutor(max_workers=1, thread_name_prefix="phrex-inference")
 _slots = BoundedSemaphore(3)
@@ -83,6 +83,9 @@ def submit_inference(router, question, body, respond, audit):
                 answer = router.answer(question, body, progress=progress, on_chunk=on_chunk)
                 checkpoint()
                 outcome = 'completed'
+            except ExecutionCancelled:
+                outcome = 'cancelled'
+                answer = 'Your intelligence request was cancelled.'
             except PermissionError:
                 answer = "Administrator access required."
             except (TimeoutError, requests.exceptions.Timeout):
