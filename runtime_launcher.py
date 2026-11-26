@@ -3,6 +3,7 @@ import logging
 from logging.handlers import RotatingFileHandler
 import os
 from pathlib import Path
+from runtime_paths import data_root
 import re
 import subprocess
 import sys
@@ -24,7 +25,7 @@ def scheduler_exit_code(code):
 def main():
     if os.name != "nt":
         return 2
-    folder = Path(os.environ["LOCALAPPDATA"]) / "CodePhrex" / "Phrex" / "logs"
+    folder = data_root() / "logs"
     folder.mkdir(parents=True, exist_ok=True)
     logger = logging.getLogger("phrex.runtime")
     logger.setLevel(logging.INFO)

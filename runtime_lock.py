@@ -2,6 +2,7 @@
 from contextlib import contextmanager
 import os
 from pathlib import Path
+from runtime_paths import data_root
 
 class AlreadyRunning(RuntimeError):
     pass
@@ -12,7 +13,7 @@ def runtime_lock():
         yield
         return
     import msvcrt
-    folder = Path(os.environ["LOCALAPPDATA"]) / "CodePhrex" / "Phrex"
+    folder = data_root()
     folder.mkdir(parents=True, exist_ok=True)
     with (folder / "runtime.lock").open("a+b") as handle:
         handle.seek(0)
