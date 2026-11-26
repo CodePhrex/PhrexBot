@@ -4,11 +4,12 @@ import json
 import os
 from pathlib import Path
 import sqlite3
+from contextlib import closing
 
 def inventory_health(path, now=None):
     now = now or datetime.now(timezone.utc)
     try:
-        with sqlite3.connect(Path(path).resolve().as_uri() + "?mode=ro", uri=True, timeout=2) as db:
+        with closing(sqlite3.connect(Path(path).resolve().as_uri() + "?mode=ro", uri=True, timeout=2)) as db:
             count, stamp = db.execute("SELECT count(*), max(last_seen) FROM repository_inventory").fetchone()
         if not stamp:
             return {"state": "unknown", "count": count}
