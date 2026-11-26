@@ -1,6 +1,6 @@
 import unittest
 from unittest.mock import patch
-from bot import authorized, parse_repos, report
+from bot import authorized, parse_repos, report, blocks
 
 class BotTests(unittest.TestCase):
     def test_auth(self):
@@ -14,6 +14,11 @@ class BotTests(unittest.TestCase):
     @patch("bot.github", return_value=[])
     def test_status(self, github):
         self.assertIn("No open pull requests", report("status lab", {"lab":"CodePhrex/DroidLab"}, "token"))
+    @patch("bot.github", return_value=[{"sha":"abcdef123456"}])
+    def test_progress(self, github):
+        self.assertIn("abcdef1", report("progress lab", {"lab":"CodePhrex/DroidLab"}, "token"))
+    def test_blocks(self):
+        self.assertEqual(blocks("sample")[1]["text"]["type"], "plain_text")
     def test_pending(self):
         self.assertIn("not implemented", report("tasks", {}, "token"))
 
