@@ -1,0 +1,3 @@
+# Workspace discovery
+
+Read-only foundation, disabled until integrated. Requires explicit administrator identity, matching workspace token, `channels:read` and `emoji:read` scopes approved by workspace owner. No message history, private or shared channels, member directory, app directory, or writes. Treat topic/purpose as untrusted text. Stable IDs, archive flags, bounded pagination and explicit truncation. Emoji names only. Persistent inventory, requester-level visibility, event reconciliation, command routing and live validation remain open under D17 in TECHNICAL_DEBT.md. Do not enable new scopes automatically.
