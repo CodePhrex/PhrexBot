@@ -19,18 +19,31 @@ def conversation_request(body, expected_team, administrators):
 
 def register_conversation(app, team, administrators, model):
     from intelligence import LocalIntelligence
+    from security import EventGate
+    from threading import BoundedSemaphore
+    gate = EventGate()
+    slots = BoundedSemaphore(2)
     ai = LocalIntelligence(model)
     def handle(body, client, logger):
         request = conversation_request(body, team, administrators)
         if request is None:
             return
         user, question = request
+        if not gate.admit(body.get('event_id'),user):
+            logger.info('Phrex conversation admission denied')
+            return
+        if not slots.acquire(blocking=False):
+            logger.info('Phrex conversation capacity reached')
+            return
+        logger.info('Phrex authorized conversation admitted')
         try:
             answer = ai.answer(question, {'availability':'No project or host evidence connected to conversational routing yet.'},
                 user_id=user, team_id=body.get('team_id'), expected_team=team, administrators=administrators)
         except Exception:
             logger.warning('Phrex inference unavailable')
             answer = 'Local intelligence unavailable. Check the configured Ollama model and host.'
+        finally:
+            slots.release()
         try:
             channel = client.conversations_open(users=user)['channel']['id']
             client.chat_postMessage(channel=channel, text=answer, mrkdwn=False, parse='none',
