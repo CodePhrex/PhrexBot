@@ -3,6 +3,7 @@ from concurrent.futures import ThreadPoolExecutor
 from threading import BoundedSemaphore
 from time import monotonic
 from uuid import uuid4
+import requests
 
 _pool = ThreadPoolExecutor(max_workers=1, thread_name_prefix="phrex-inference")
 _slots = BoundedSemaphore(3)
@@ -24,6 +25,12 @@ def submit_inference(router, question, body, respond, audit):
                 answer = router.answer(question, body)
             except PermissionError:
                 answer = "Administrator access required."
+            except requests.exceptions.Timeout:
+                audit.warning("natural intelligence unavailable")
+                answer = "The local intelligence request timed out. Please retry with a narrower question."
+            except requests.exceptions.ConnectionError:
+                audit.warning("natural intelligence unavailable")
+                answer = "The local intelligence service could not be reached. Check Ollama availability."
             except Exception:
                 audit.warning("natural intelligence unavailable")
                 answer = "Local intelligence unavailable. Check model and host."

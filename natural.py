@@ -53,6 +53,8 @@ class NaturalRouter:
         try:
             evidence={'configured_projects':self.repos,'scope':'Configured repositories only; no complete roadmap or task history.'}
             q=question.lower()
+            if re.fullmatch(r'(hello|hi|hey|thanks|thank you|how are you|hello, how are you)[.!? ]*',q.strip()):
+                return self.ai.answer(question,{},user_id=user,team_id=team,expected_team=self.team,administrators=self.admins)
             try:
                 evidence['project_knowledge']=project_evidence(question,os.getenv('PHREX_PROJECT_DB'))
             except Exception:
@@ -63,7 +65,7 @@ class NaturalRouter:
                     evidence['host']={k:h[k] for k in ('host','os','captured_at','cpu_percent','logical_cpus','memory','uptime_seconds','disks')}
                 except Exception:
                     evidence['host']='Unavailable'
-            if re.search(r'\b(projects?|github|builds?|progress|status|commits?|workflow|repository|repositories|droid|chirp|phrexnet|lottery|tinymobb)\b',q):
+            if re.search(r'\b(github|builds?|progress|status|commits?|workflow|repositories)\b',q):
                 evidence['github_digest']=self.report('digest',dict(list(self.repos.items())[:10]),self.token)
                 evidence['github_progress']=self.report('progress',dict(list(self.repos.items())[:10]),self.token)
             if re.search(r'\b(github|commits?|releases?|builds?|progress|status|activity)\b',q):

@@ -31,8 +31,8 @@ class LocalIntelligence:
             json={'model':self.model,'stream':False,'messages':[
                 {'role':'system','content':SYSTEM},
                 {'role':'user','content':json.dumps({'question':question,'evidence':evidence},ensure_ascii=False)}],
-                'options':{'num_predict':512,'temperature':0.2}},
-            timeout=90,allow_redirects=False)
+                'options':{'num_predict':256,'num_ctx':4096,'temperature':0.2}},
+            timeout=(5,180),allow_redirects=False)
         if response.status_code != 200:
             raise RuntimeError('Local inference unavailable')
         content = response.json().get('message',{}).get('content')
