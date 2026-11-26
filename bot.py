@@ -142,6 +142,11 @@ def main():
         audit.info("authorized command received")
         result = report(body.get("text", ""), repos, token)
         respond(text=result, blocks=blocks(result, body.get('text', '')), response_type="ephemeral")
+    model = os.getenv("PHREX_OLLAMA_MODEL", "").strip()
+    administrators = {u.strip() for u in os.getenv("PHREX_ADMIN_USERS", "").split(",") if u.strip() and u.strip() != "*"}
+    if model and administrators:
+        from conversation import register_conversation
+        register_conversation(app, team, administrators, model)
     SocketModeHandler(app, os.environ["SLACK_APP_TOKEN"]).start()
 
 if __name__ == "__main__":
