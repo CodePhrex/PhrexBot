@@ -7,6 +7,7 @@ from runtime_paths import data_root
 from execution_history import ExecutionHistory
 from execution_metrics import metrics
 from queue_analytics import admissions
+from execution_guidance import recommendations
 
 def diagnostic_command(question, body):
     team,owner=body.get("team_id"),body.get("user_id")
@@ -44,6 +45,9 @@ def diagnostic_command(question, body):
             lines.append("Failure/cancellation codes: "+(", ".join(f"{k}: {v}" for k,v in rows) or "none recorded"))
         q=admissions.summary(team,owner)
         lines.append(f"Process-local admission observations (last hour, capped): {q['observed']}; admitted {q['admitted']}; queue full {q['queue_full']}")
+        if action in ("diagnostics","performance"):
+            lines.append("Performance guidance (heuristic thresholds):")
+            lines.extend(recommendations(m,q))
         lines.append("Execution duration includes delivery. Completion is not answer accuracy.")
         return "\n".join(lines)
     except (OSError,sqlite3.Error,ValueError,KeyError):
