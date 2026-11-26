@@ -32,6 +32,14 @@ class BotTests(unittest.TestCase):
     @patch("bot.github", return_value=[{"number":1}])
     def test_security(self, github):
         self.assertIn("max 10): 1", report("security lab", {"lab":"CodePhrex/DroidLab"}, "token"))
+    def test_project_card(self):
+        card = blocks("lab: success | https://github.com/CodePhrex/DroidLab")[1]
+        self.assertEqual(card["accessory"]["url"], "https://github.com/CodePhrex/DroidLab")
+    def test_untrusted_link(self):
+        card = blocks("lab: success | https://example.com/other")[1]
+        self.assertNotIn("accessory", card)
+    def test_block_limit(self):
+        self.assertLessEqual(len(blocks("\n".join(["row"] * 100))), 50)
     def test_pending(self):
         self.assertIn("not implemented", report("tasks", {}, "token"))
 

@@ -71,7 +71,19 @@ def report(command, repos, token):
     return "\n".join(lines)
 
 def blocks(text):
-    return [{"type": "header", "text": {"type": "plain_text", "text": "PhrexBot | CodePhrex Intelligence"}}, {"type": "section", "text": {"type": "plain_text", "text": text[:2900]}}, {"type": "context", "elements": [{"type": "plain_text", "text": "Read-only GitHub snapshot | " + datetime.now(timezone.utc).isoformat(timespec="seconds")}]}]
+    output = [{"type": "header", "text": {"type": "plain_text", "text": "PhrexBot | CodePhrex Intelligence"}}]
+    lines = text.splitlines()
+    for line in lines[:40]:
+        match = re.fullmatch(r"([\w.-]+): (.*?) \| (https://github\.com/[\w.-]+/[\w.-]+)", line)
+        if match:
+            alias, state, url = match.groups()
+            output.append({"type": "section", "text": {"type": "plain_text", "text": (alias.upper() + "\n" + state)[:2900]}, "accessory": {"type": "button", "text": {"type": "plain_text", "text": "Repository"}, "url": url, "action_id": "open_repository_" + str(len(output))}})
+        else:
+            output.append({"type": "section", "text": {"type": "plain_text", "text": line[:2900] or " "}})
+    if len(lines) > 40:
+        output.append({"type": "section", "text": {"type": "plain_text", "text": "Additional rows omitted; filter by project."}})
+    output.append({"type": "context", "elements": [{"type": "mrkdwn", "text": ":phrex-ai: Intelligence on Command"}, {"type": "plain_text", "text": "Read-only snapshot | " + datetime.now(timezone.utc).isoformat(timespec="seconds")}]})
+    return output
 
 def main():
     from slack_bolt import App
@@ -83,6 +95,9 @@ def main():
     if not team or not any(users) or not token:
         raise ValueError("Missing authorization configuration")
     app = App(token=os.environ["SLACK_BOT_TOKEN"])
+    @app.action(re.compile(r"^open_repository_\d+$"))
+    def open_repository(ack):
+        ack()
     @app.command("/phrex")
     def phrex(ack, body, respond):
         ack()
