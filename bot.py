@@ -1,9 +1,11 @@
 import os
 import re
 import requests
+from concurrent.futures import ThreadPoolExecutor
+from datetime import datetime, timezone
 
-HELP = "PhrexBot | Intelligence on Command\n/phrex status [project]\n/phrex builds [project]\n/phrex help"
-PENDING = {"progress", "alerts", "approvals", "digest", "tasks", "security"}
+HELP = "PhrexBot | Intelligence on Command\n/phrex status [project]\n/phrex builds [project]\n/phrex progress [project]\n/phrex digest [project]\n/phrex help"
+PENDING = {"alerts", "approvals", "tasks", "security"}
 
 def parse_repos(raw):
     repos = {}
@@ -29,24 +31,36 @@ def report(command, repos, token):
         return HELP
     if action in PENDING:
         return "This command is not implemented yet."
-    if action not in {"status", "builds"} or len(parts) > 2:
+    if action not in {"status", "builds", "progress", "digest"} or len(parts) > 2:
         return HELP
     if len(parts) == 2 and parts[1] not in repos:
         return "Unknown project. Available: " + ", ".join(repos)
     selected = {parts[1]: repos[parts[1]]} if len(parts) == 2 else repos
     lines = ["CODEPHREX | COMMAND CENTER"]
-    for alias, repo in selected.items():
+    def inspect(item):
+        alias, repo = item
         try:
             if action == "status":
                 data = github(repo, "pulls?state=open&per_page=1", token)
                 state = "Open pull requests present" if data else "No open pull requests"
+            elif action == "progress":
+                data = github(repo, "commits?per_page=1", token)
+                state = "Latest commit " + data[0]["sha"][:7] if data else "No commits returned"
             else:
                 data = github(repo, "actions/runs?per_page=1", token).get("workflow_runs", [])
                 state = (data[0].get("conclusion") or data[0].get("status") or "Unknown") if data else "No workflow runs returned"
-            lines.append(f"{alias}: {state} | https://github.com/{repo}")
+            if action == "digest":
+                prs = github(repo, "pulls?state=open&per_page=1", token)
+                state = "Latest workflow: " + state + ("; open PRs present" if prs else "; no open PRs")
+            return f"{alias}: {state} | https://github.com/{repo}"
         except (requests.RequestException, ValueError, KeyError, TypeError):
-            lines.append(f"{alias}: Data unavailable")
+            return f"{alias}: Data unavailable"
+    with ThreadPoolExecutor(max_workers=5) as pool:
+        lines.extend(pool.map(inspect, selected.items()))
     return "\n".join(lines)
+
+def blocks(text):
+    return [{"type": "header", "text": {"type": "plain_text", "text": "PhrexBot | CodePhrex Intelligence"}}, {"type": "section", "text": {"type": "plain_text", "text": text[:2900]}}, {"type": "context", "elements": [{"type": "plain_text", "text": "Read-only GitHub snapshot | " + datetime.now(timezone.utc).isoformat(timespec="seconds")}]}]
 
 def main():
     from slack_bolt import App
@@ -64,7 +78,8 @@ def main():
         if not authorized(body, team, users):
             respond(text="Not authorized.", response_type="ephemeral")
             return
-        respond(text=report(body.get("text", ""), repos, token), response_type="ephemeral")
+        result = report(body.get("text", ""), repos, token)
+        respond(text=result, blocks=blocks(result), response_type="ephemeral")
     SocketModeHandler(app, os.environ["SLACK_APP_TOKEN"]).start()
 
 if __name__ == "__main__":
