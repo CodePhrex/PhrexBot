@@ -160,14 +160,8 @@ def main():
             if router is None:
                 respond(text="Conversational intelligence is not configured.", response_type="ephemeral")
                 return
-            try:
-                answer = router.answer(question, body)
-            except PermissionError:
-                answer = "Administrator access required."
-            except Exception:
-                audit.warning("natural intelligence unavailable")
-                answer = "Local intelligence unavailable. Check model and host."
-            respond(text="Phrex intelligence", blocks=[{"type":"section","text":{"type":"plain_text","text":answer[:2900]}}], response_type="ephemeral")
+            from async_inference import submit_inference
+            submit_inference(router, question, body, respond, audit)
             return
         result = report(question, repos, token)
         respond(text=result, blocks=blocks(result, body.get('text', '')), response_type="ephemeral")
