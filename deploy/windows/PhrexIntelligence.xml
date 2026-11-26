@@ -1,0 +1,13 @@
+<!-- Review-only template. Do not install until identity, paths, wrapper version and runtime compatibility are validated. -->
+<service>
+  <id>PhrexIntelligence</id>
+  <name>CodePhrex Intelligence Service</name>
+  <description>Phrex persistent intelligence engine</description>
+  <executable>%BASE%\runtime\Scripts\python.exe</executable>
+  <arguments>"%BASE%\app\runtime_launcher.py"</arguments>
+  <workingdirectory>%BASE%\app</workingdirectory>
+  <startmode>Manual</startmode>
+  <stoptimeout>30sec</stoptimeout>
+  <logpath>%ProgramData%\CodePhrex\Phrex\logs</logpath>
+  <log mode="roll-by-size"><sizeThreshold>1024</sizeThreshold><keepFiles>3</keepFiles></log>
+</service>
