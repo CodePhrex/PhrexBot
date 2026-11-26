@@ -8,7 +8,7 @@ In Windows Task Scheduler, choose Create Task (not Create Basic Task).
 - Triggers: At log on, specific user (your account).
 - Actions: Start a program. Program: absolute path to the repository's .venv\Scripts\pythonw.exe. Arguments: runtime_launcher.py. Start in: absolute repository directory (without surrounding quotes).
 - Conditions: review battery and network preferences; allow operation on battery only if desired.
-- Settings: allow on-demand run; do not start a new instance if already running; disable the execution time limit. Restart-on-failure settings will be validated in RT-05.
+- Settings: allow on-demand run; do not start a new instance if already running; disable the execution time limit. Set restart on failure to 1 minute, maximum 3 attempts. Verify with a controlled nonzero exit before production acceptance. Disable the task before intentional maintenance.
 - Save the task only after the runtime acceptance gate. No stored password or elevated account is required.
 
 ## Verification

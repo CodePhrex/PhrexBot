@@ -17,6 +17,10 @@ def load_config(path, inherited):
             env[match[1]] = match[2].strip()
     return env
 
+def scheduler_exit_code(code):
+    # Duplicate refusal is not a crash; avoid scheduler retry loops.
+    return 0 if code == 3 else code
+
 def main():
     if os.name != "nt":
         return 2
@@ -35,7 +39,7 @@ def main():
         logger.info("Runtime launch requested")
         result = subprocess.run([str(python), "-u", str(ROOT / "bot.py")], cwd=ROOT, env=env, check=False)
         logger.info("Runtime exited with code %d", result.returncode)
-        return result.returncode
+        return scheduler_exit_code(result.returncode)
     except Exception as exc:
         logger.error("Runtime launch failed: %s", type(exc).__name__)
         return 1
