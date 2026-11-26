@@ -1,0 +1,7 @@
+# SVC-04 — Service identity
+
+Proposed identity: dedicated Windows virtual service account NT SERVICE\\PhrexIntelligence, subject to wrapper and host compatibility verification. No administrative membership or interactive login. Installation root writable only by administrators and SYSTEM; service read/execute. Dedicated ProgramData\\CodePhrex\\Phrex data root with restricted ACLs, service write access only where required. Configuration should be separately protected from service writes. Verify effective permissions and reparse points before activation.
+
+Credential provisioning must be explicitly authorized. Do not log, transmit or embed tokens in service XML or command arguments. A restricted .env is an interim plaintext configuration, not an encrypted vault. Prefer a service-identity-compatible protected secret store in remediation. Preserve existing credentials until rollback is no longer needed. Rotate if exposure occurs.
+
+service_config.py validates explicit absolute data/config paths and presence of required credential settings without returning values. It does not read secrets, verify ACLs, authenticate tokens, provision an account or enforce a vault. Verify actual environment variable names against runtime before integration. Existing launcher remains unchanged; service integration, credential storage, ACL verification, database migration and live identity tests remain pending under D01/D03/D18/D19. No installation authorized.
