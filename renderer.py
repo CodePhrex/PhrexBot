@@ -1,3 +1,4 @@
+from personality import describe
 from templates import template_for
 from emoji import command_emoji
 import re
@@ -15,9 +16,10 @@ def blocks(text, command='help'):
         match = re.fullmatch(r"([\w.-]+): (.*?) \| (https://github\.com/[\w.-]+/[\w.-]+)", line)
         if match:
             alias, state, url = match.groups()
+            state = describe(state, command)
             output.append({"type": "section", "text": {"type": "plain_text", "text": (alias.upper() + "\n" + state)[:2900]}, "accessory": {"type": "button", "text": {"type": "plain_text", "text": "Repository"}, "url": url, "action_id": "open_repository_" + str(len(output))}})
         else:
-            output.append({"type": "section", "text": {"type": "plain_text", "text": line[:2900] or " "}})
+            output.append({"type": "section", "text": {"type": "plain_text", "text": (line.replace(": Data unavailable", ": " + describe("Data unavailable", command)) if re.fullmatch(r"[\\w.-]+: Data unavailable", line) else line)[:2900] or " "}})
     if len(lines) > 40:
         output.append({"type": "section", "text": {"type": "plain_text", "text": "Additional rows omitted; filter by project."}})
     output.append({"type": "context", "elements": [{"type": "plain_text", "text": DIVISION.upper() + " | " + classification}]})
