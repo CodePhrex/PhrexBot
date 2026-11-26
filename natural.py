@@ -41,7 +41,7 @@ class NaturalRouter:
         self.team,self.admins,self.repos,self.token,self.report = team,admins,repos,token,report
         self.gate=EventGate()
         self.slots=BoundedSemaphore(1)
-    def answer(self, question, body, progress=None):
+    def answer(self, question, body, progress=None, on_chunk=None):
         progress = progress or (lambda stage: None)
         user=body.get('user_id')
         team=body.get('team_id')
@@ -56,7 +56,7 @@ class NaturalRouter:
             q=question.lower()
             if re.fullmatch(r'(hello|hi|hey|thanks|thank you|how are you|hello, how are you)[.!? ]*',q.strip()):
                 progress('Waiting for Ollama inference')
-                return self.ai.answer(question,{},user_id=user,team_id=team,expected_team=self.team,administrators=self.admins)
+                return self.ai.answer(question,{},user_id=user,team_id=team,expected_team=self.team,administrators=self.admins, **({'on_chunk':on_chunk} if on_chunk is not None else {}))
             progress('Searching project knowledge')
             try:
                 evidence['project_knowledge']=project_evidence(question,os.getenv('PHREX_PROJECT_DB'))
@@ -89,6 +89,6 @@ class NaturalRouter:
                         live.append({'repository':match.group(1),'availability':'Unavailable'})
                 evidence['targeted_repository_activity']=live
             progress('Waiting for Ollama inference')
-            return self.ai.answer(question,evidence,user_id=user,team_id=team,expected_team=self.team,administrators=self.admins)
+            return self.ai.answer(question,evidence,user_id=user,team_id=team,expected_team=self.team,administrators=self.admins, **({'on_chunk':on_chunk} if on_chunk is not None else {}))
         finally:
             self.slots.release()

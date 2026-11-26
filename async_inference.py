@@ -53,8 +53,14 @@ def submit_inference(router, question, body, respond, audit):
                     notify(f':phrex-ai: *{stage}* | Request `{request_id}` | Elapsed: {monotonic()-accepted:.1f}s')
                 except Exception:
                     audit.warning('natural progress delivery unavailable')
+            first_token = False
+            def on_chunk(chunk):
+                nonlocal first_token
+                if not first_token:
+                    first_token = True
+                    progress('Generating response')
             try:
-                answer = router.answer(question, body, progress=progress)
+                answer = router.answer(question, body, progress=progress, on_chunk=on_chunk)
             except PermissionError:
                 answer = "Administrator access required."
             except requests.exceptions.Timeout:
