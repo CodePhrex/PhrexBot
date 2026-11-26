@@ -1,0 +1,3 @@
+# Executive dashboard
+
+`/phrex dashboard` is an ephemeral administrator-only Slack report. Configure explicit PHREX_ADMIN_USERS IDs, never wildcard. Combines local host CPU/RAM, timestamped task snapshot counts and existing GitHub digest results for the first ten configured repositories. Missing sources are labeled unavailable. GitHub links use trusted navigation. The PNG renderer is callable locally with optional font paths; automatic Slack file upload and custom font installation are not included. Project registry and organization-wide discovery integration remain pending. No live deployment or acceptance testing performed.
