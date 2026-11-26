@@ -21,8 +21,13 @@ def submit_inference(router, question, body, respond, audit):
                 respond(text=f":phrex-ai: *Processing intelligence* | Request `{request_id}`\nAnalyzing your request. Queue wait: {started-accepted:.1f}s.", response_type="ephemeral")
             except Exception:
                 audit.warning("natural progress delivery unavailable")
+            def progress(stage):
+                try:
+                    respond(text=f':phrex-ai: *{stage}* | Request `{request_id}` | Elapsed: {monotonic()-accepted:.1f}s', response_type='ephemeral')
+                except Exception:
+                    audit.warning('natural progress delivery unavailable')
             try:
-                answer = router.answer(question, body)
+                answer = router.answer(question, body, progress=progress)
             except PermissionError:
                 answer = "Administrator access required."
             except requests.exceptions.Timeout:
