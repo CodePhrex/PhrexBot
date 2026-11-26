@@ -1,0 +1,3 @@
+# Phrex App Home
+
+Read-only Block Kit template with command guidance, fixed GitHub and Slack Help links, and administrator-specific navigation. No live metrics or private project records in the view. Before activation, enable Home in Slack app settings, authorize app_home_opened events, authenticate event identity, integrate views.publish and acknowledge URL button actions. Verify rendering, accessibility, workspace identity and permissions. Native Slack typography and theme constraints apply. Live publishing, interactive callbacks and dashboard data remain deferred under D06/D17/D19 in TECHNICAL_DEBT.md.
