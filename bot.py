@@ -7,7 +7,7 @@ import requests
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
 
-HELP = "Phrex | Intelligence on Command\n/phrex status [project]\n/phrex builds [project]\n/phrex progress [project]\n/phrex digest [project]\n/phrex alerts [project]\n/phrex approvals [project]\n/phrex security [project]\n/phrex tasks\n/phrex dashboard (administrator)\n/phrex help"
+HELP = "Phrex | Intelligence on Command\n/phrex status [project]\n/phrex builds [project]\n/phrex progress [project]\n/phrex digest [project]\n/phrex alerts [project]\n/phrex approvals [project]\n/phrex security [project]\n/phrex tasks\n/phrex dashboard (administrator)\n/phrex queue | executing | health\n/phrex cancel [ID] | retry [ID]\n/phrex history | metrics | diagnostics | performance [days]\n/phrex help"
 PENDING = set()
 
 def parse_repos(raw):
@@ -157,6 +157,11 @@ def main():
                 respond(text="Retry unavailable.", response_type="ephemeral")
                 return
             submit_inference(router, original, body, respond, audit, root_id=parts[1])
+            return
+        if question.strip().lower().split()[:1] in [["history"], ["metrics"], ["diagnostics"], ["performance"]]:
+            ack()
+            from diagnostic_commands import diagnostic_command
+            respond(text=diagnostic_command(question, body), response_type="ephemeral")
             return
         from execution_commands import execution_command
         from async_inference import registry
