@@ -23,7 +23,7 @@ def authorized(body, team, users):
     return bool(team and users and body.get("team_id") == team and body.get("user_id") and ("*" in users or body.get("user_id") in users))
 
 def github(repo, endpoint, token):
-    response = requests.get(f"https://api.github.com/repos/{repo}/{endpoint}", headers={"Authorization": f"Bearer {token}", "Accept": "application/vnd.github+json", "X-GitHub-Api-Version": "2022-11-28"}, timeout=8)
+    response = requests.get(f"https://api.github.com/repos/{repo}/{endpoint}", headers={"Authorization": f"Bearer {token}", "Accept": "application/vnd.github+json", "X-GitHub-Api-Version": "2022-11-28"}, timeout=8, allow_redirects=False)
     response.raise_for_status()
     return response.json()
 
