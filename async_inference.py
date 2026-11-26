@@ -8,6 +8,7 @@ from execution_registry import ExecutionRegistry
 
 registry = ExecutionRegistry()
 from private_presentation import final_payload
+from execution_deadline import check_deadline
 
 _pool = ThreadPoolExecutor(max_workers=1, thread_name_prefix="phrex-inference")
 _slots = BoundedSemaphore(3)
@@ -25,6 +26,8 @@ def submit_inference(router, question, body, respond, audit):
         _slots.release()
         respond(text='Request registration unavailable.', response_type='ephemeral')
         return
+    def checkpoint():
+        check_deadline(registry.inspect(request_id, body.get('team_id'), body.get('user_id')))
     def work():
         started = monotonic()
         done = Event()
@@ -60,6 +63,7 @@ def submit_inference(router, question, body, respond, audit):
             except Exception:
                 audit.warning("natural progress delivery unavailable")
             def progress(stage):
+                checkpoint()
                 with stage_lock:
                     current[0] = stage
                 try:
@@ -69,16 +73,19 @@ def submit_inference(router, question, body, respond, audit):
             first_token = False
             def on_chunk(chunk):
                 nonlocal first_token
+                checkpoint()
                 if not first_token:
                     first_token = True
                     registry.transition(request_id, 'generating')
                     progress('Generating response')
             try:
+                checkpoint()
                 answer = router.answer(question, body, progress=progress, on_chunk=on_chunk)
+                checkpoint()
                 outcome = 'completed'
             except PermissionError:
                 answer = "Administrator access required."
-            except requests.exceptions.Timeout:
+            except (TimeoutError, requests.exceptions.Timeout):
                 audit.warning("natural intelligence unavailable")
                 answer = "The local intelligence request timed out. Please retry with a narrower question."
             except requests.exceptions.ConnectionError:
