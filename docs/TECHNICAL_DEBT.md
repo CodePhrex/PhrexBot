@@ -27,3 +27,10 @@ All entries are open unless verified and explicitly closed with evidence. This r
 
 ## Closure policy
 For each item record PR, test evidence, deployment revision and live acceptance where applicable. Add newly identified limitations here rather than losing them in chat. Prioritize privacy/security and runtime blockers before enabling affected features. Deferred work must not be silently advertised as available.
+
+## IEFE deferred acceptance and remediation
+
+- D01: Scheduled task stop can leave child inference processes; service integration, graceful stop, wrapper checksum and recovery acceptance remain open.
+- D11/D18: Cooperative cancellation cannot interrupt blocked I/O; total streaming deadline, callback propagation, retry expiry without access, secret filtering, retry rollback and cancellation races require integration tests. Progress budget can exhaust before heartbeat; no native typing or partial text delivery.
+- D19/D20: Terminal telemetry omits some admission/registration/submission failures and may be skipped on registry errors. Completion is not answer accuracy; durations include delivery. First-token and generation timing, actual time-weighted utilization, persistent rejection history, administrator aggregates and live model probes remain open. Queue observations are volatile, capped and owner-scoped. Upstream swallowed errors may be misclassified; legacy failure codes unknown. Diagnostic reports are plain text; live Slack and concurrency acceptance pending.
+- D18: Execution metadata contains workspace/user identifiers. Hourly logical cleanup while running is not guaranteed physical erasure; existing write-time pruning, filesystem ACLs, backups, journals, offline retention, user deletion controls and service identity isolation need review. Do not claim encrypted storage or guaranteed erasure. No prompt or answer columns in execution history.
