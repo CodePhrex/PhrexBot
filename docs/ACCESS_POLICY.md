@@ -1,0 +1,3 @@
+# Central access policy
+
+Default-deny capability policy for authenticated workspace identities, explicit members and administrators, no wildcard access, optional owner isolation. Unknown capabilities denied. Credential screening detects selected token formats and assignment patterns; it is not comprehensive DLP. No automatic activation or changes to existing permissions. Before production, integrate every entry point, require ownership for all personal data operations, validate actual Slack identity and repository entitlements, protect storage and backups, test bypasses and audit access. Existing wildcard command configuration is not changed by this module. Track remaining work under D10/D14/D18/D19 in TECHNICAL_DEBT.md.
