@@ -12,6 +12,7 @@ retry_policy = RetryPolicy()
 from private_presentation import final_payload
 from execution_deadline import check_deadline, ExecutionCancelled
 from execution_telemetry import record_execution
+from queue_analytics import admissions
 
 _pool = ThreadPoolExecutor(max_workers=1, thread_name_prefix="phrex-inference")
 _slots = BoundedSemaphore(3)
@@ -23,6 +24,7 @@ def submit_inference(router, question, body, respond, audit, root_id=None):
         if root_id:
             retry_policy.rollback(root_id)
     if not _slots.acquire(blocking=False):
+        admissions.record(body.get('team_id'), body.get('user_id'), False)
         rollback()
         respond(text="Phrex intelligence queue is full. Please retry shortly.", response_type="ephemeral")
         return
@@ -34,6 +36,7 @@ def submit_inference(router, question, body, respond, audit, root_id=None):
         _slots.release()
         respond(text='Request registration unavailable.', response_type='ephemeral')
         return
+    admissions.record(body.get('team_id'), body.get('user_id'), True)
     def checkpoint():
         check_deadline(registry.inspect(request_id, body.get('team_id'), body.get('user_id')))
     def work():
