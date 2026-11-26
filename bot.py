@@ -45,15 +45,29 @@ def report(command, repos, token):
                 state = "Open pull requests present" if data else "No open pull requests"
             elif action == "approvals":
                 data = github(repo, "pulls?state=open&per_page=10", token)
-                candidates = [f"#{p['number']}" for p in data if not p.get("draft")]
-                state = "Open non-draft PRs (first 10, review status not verified): " + (", ".join(candidates) or "none returned")
+                candidates = []
+                for pr in data:
+                    if pr.get("draft"):
+                        continue
+                    number = int(pr["number"])
+                    requested = len(pr.get("requested_reviewers", [])) + len(pr.get("requested_teams", []))
+                    candidates.append(f"#{number} ({requested} requested reviewers/teams)")
+                state = "Open non-draft PRs (first 10; not a mergeability verdict): " + (", ".join(candidates) or "none returned")
             elif action == "alerts":
                 data = github(repo, "actions/runs?status=completed&per_page=10", token).get("workflow_runs", [])
-                failed = [str(r["id"]) for r in data if r.get("conclusion") in {"failure", "timed_out", "action_required"}]
+                failed = [f"{r['id']} ({r['conclusion']})" for r in data if r.get("conclusion") in {"failure", "timed_out", "action_required"}]
                 state = "Failed/action-required runs among latest 10 completed: " + (", ".join(failed) or "none returned")
             elif action == "security":
                 data = github(repo, "dependabot/alerts?state=open&per_page=10", token)
+                counts = {}
+                for alert in data:
+                    severity = alert.get("security_advisory", {}).get("severity", "unknown")
+                    if severity not in {"critical", "high", "medium", "low"}:
+                        severity = "unknown"
+                    counts[severity] = counts.get(severity, 0) + 1
                 state = "Open Dependabot alerts returned (max 10): " + str(len(data))
+                if counts:
+                    state += "; " + ", ".join(f"{k}: {v}" for k, v in sorted(counts.items()))
             elif action == "progress":
                 data = github(repo, "commits?per_page=1", token)
                 state = "Latest commit " + data[0]["sha"][:7] if data else "No commits returned"
