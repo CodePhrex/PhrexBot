@@ -132,6 +132,7 @@ def main():
     @app.action(re.compile(r"^open_repository_\d+$"))
     def open_repository(ack):
         ack()
+    from natural import NaturalRouter, is_natural
     @app.command("/phrex")
     def phrex(ack, body, respond):
         ack()
@@ -151,10 +152,25 @@ def main():
                 return
             respond(text="Phrex executive intelligence", blocks=dashboard_blocks(rows,links), response_type="ephemeral")
             return
-        result = report(body.get("text", ""), repos, token)
+        question = body.get("text", "")
+        if is_natural(question):
+            if router is None:
+                respond(text="Conversational intelligence is not configured.", response_type="ephemeral")
+                return
+            try:
+                answer = router.answer(question, body)
+            except PermissionError:
+                answer = "Administrator access required."
+            except Exception:
+                audit.warning("natural intelligence unavailable")
+                answer = "Local intelligence unavailable. Check model and host."
+            respond(text="Phrex intelligence", blocks=[{"type":"section","text":{"type":"plain_text","text":answer[:2900]}}], response_type="ephemeral")
+            return
+        result = report(question, repos, token)
         respond(text=result, blocks=blocks(result, body.get('text', '')), response_type="ephemeral")
     model = os.getenv("PHREX_OLLAMA_MODEL", "").strip()
     administrators = {u.strip() for u in os.getenv("PHREX_ADMIN_USERS", "").split(",") if u.strip() and u.strip() != "*"}
+    router = NaturalRouter(model, team, administrators, repos, token, report) if model and administrators else None
     if model and administrators:
         from conversation import register_conversation
         register_conversation(app, team, administrators, model)
