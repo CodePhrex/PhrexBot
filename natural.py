@@ -1,5 +1,8 @@
 """Bounded read-only natural language routing."""
 import re
+import os
+import json
+from knowledge import ProjectStore
 from threading import BoundedSemaphore
 from security import EventGate
 from host_telemetry import snapshot
@@ -9,6 +12,20 @@ COMMANDS = frozenset('help status builds progress digest alerts approvals securi
 def is_natural(question):
     parts = question.strip().lower().split()
     return bool(parts and (parts[0] not in COMMANDS or len(parts)>2))
+
+def project_evidence(question, path):
+    if not path or not os.path.isfile(path):
+        return {'availability':'Local project registry not configured'}
+    store = ProjectStore(path)
+    aliases = store.list_projects()[:100]
+    normalized = re.sub(r'[^a-z0-9]', '', question.lower())
+    matches = [a for a in aliases if len(a)>=3 and re.sub(r'[^a-z0-9]', '', a) in normalized]
+    records = []
+    for alias in (matches or aliases)[:20]:
+        record = store.get(alias)
+        if record and len(json.dumps(records+[record],ensure_ascii=False))<=10000:
+            records.append(record)
+    return {'records':records,'scope':'Local documented profiles, not live implementation verification','registered_aliases':aliases,'truncated':len(matches or aliases)>len(records)}
 
 class NaturalRouter:
     def __init__(self, model, team, admins, repos, token, report):
@@ -28,6 +45,10 @@ class NaturalRouter:
         try:
             evidence={'configured_projects':self.repos,'scope':'Configured repositories only; no complete roadmap or task history.'}
             q=question.lower()
+            try:
+                evidence['project_knowledge']=project_evidence(question,os.getenv('PHREX_PROJECT_DB'))
+            except Exception:
+                evidence['project_knowledge']={'availability':'Registry unavailable'}
             if re.search(r'\b(pc|computer|host|ram|memory|cpu|disk|storage|uptime|network)\b',q):
                 try:
                     h=snapshot(user,team,self.team,self.admins)
