@@ -19,6 +19,19 @@ class BotTests(unittest.TestCase):
         self.assertIn("abcdef1", report("progress lab", {"lab":"CodePhrex/DroidLab"}, "token"))
     def test_blocks(self):
         self.assertEqual(blocks("sample")[1]["text"]["type"], "plain_text")
+    @patch("bot.github", return_value={"workflow_runs":[{"id":123,"conclusion":"failure"},{"id":456,"conclusion":"success"}]})
+    def test_alerts(self, github):
+        result = report("alerts lab", {"lab":"CodePhrex/DroidLab"}, "token")
+        self.assertIn("123", result)
+        self.assertNotIn("456", result)
+    @patch("bot.github", return_value=[{"number":12,"draft":False},{"number":13,"draft":True}])
+    def test_approvals(self, github):
+        result = report("approvals lab", {"lab":"CodePhrex/DroidLab"}, "token")
+        self.assertIn("#12", result)
+        self.assertNotIn("#13", result)
+    @patch("bot.github", return_value=[{"number":1}])
+    def test_security(self, github):
+        self.assertIn("max 10): 1", report("security lab", {"lab":"CodePhrex/DroidLab"}, "token"))
     def test_pending(self):
         self.assertIn("not implemented", report("tasks", {}, "token"))
 
