@@ -1,3 +1,4 @@
+from severity import indicator
 from navigation import destination
 from personality import describe
 from templates import template_for
@@ -13,16 +14,19 @@ def blocks(text, command='help'):
     lines = text.splitlines()
     if lines and lines[0] == "CODEPHREX | COMMAND CENTER":
         lines = lines[1:]
-    for line in lines[:40]:
+    for line in lines[:20]:
         match = re.fullmatch(r"([\w.-]+): (.*?) \| (https://github\.com/[\w.-]+/[\w.-]+)", line)
         if match:
             alias, state, url = match.groups()
+            symbol = indicator(state, command)
             state = describe(state, command)
             label, target = destination(url, command)
             output.append({"type": "section", "text": {"type": "plain_text", "text": (alias.upper() + "\n" + state)[:2900]}, "accessory": {"type": "button", "text": {"type": "plain_text", "text": label}, "url": target, "action_id": "open_repository_" + str(len(output))}})
+            if symbol and len(output) < 45:
+                output.append({"type": "context", "elements": [{"type": "mrkdwn", "text": symbol + " Workflow result"}]})
         else:
             output.append({"type": "section", "text": {"type": "plain_text", "text": (line.replace(": Data unavailable", ": " + describe("Data unavailable", command)) if re.fullmatch(r"[\\w.-]+: Data unavailable", line) else line)[:2900] or " "}})
-    if len(lines) > 40:
+    if len(lines) > 20:
         output.append({"type": "section", "text": {"type": "plain_text", "text": "Additional rows omitted; filter by project."}})
     output.append({"type": "context", "elements": [{"type": "plain_text", "text": DIVISION.upper() + " | " + classification}]})
     output.append({"type": "context", "elements": [{"type": "mrkdwn", "text": command_emoji(command) + " " + TAGLINE}, {"type": "plain_text", "text": "Read-only snapshot | " + datetime.now(timezone.utc).isoformat(timespec="seconds")}]})
