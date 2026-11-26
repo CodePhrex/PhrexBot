@@ -1,3 +1,4 @@
+from navigation import destination
 from personality import describe
 from templates import template_for
 from emoji import command_emoji
@@ -17,7 +18,8 @@ def blocks(text, command='help'):
         if match:
             alias, state, url = match.groups()
             state = describe(state, command)
-            output.append({"type": "section", "text": {"type": "plain_text", "text": (alias.upper() + "\n" + state)[:2900]}, "accessory": {"type": "button", "text": {"type": "plain_text", "text": "Repository"}, "url": url, "action_id": "open_repository_" + str(len(output))}})
+            label, target = destination(url, command)
+            output.append({"type": "section", "text": {"type": "plain_text", "text": (alias.upper() + "\n" + state)[:2900]}, "accessory": {"type": "button", "text": {"type": "plain_text", "text": label}, "url": target, "action_id": "open_repository_" + str(len(output))}})
         else:
             output.append({"type": "section", "text": {"type": "plain_text", "text": (line.replace(": Data unavailable", ": " + describe("Data unavailable", command)) if re.fullmatch(r"[\\w.-]+: Data unavailable", line) else line)[:2900] or " "}})
     if len(lines) > 40:
