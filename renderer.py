@@ -1,8 +1,9 @@
+from emoji import command_emoji
 import re
 from datetime import datetime, timezone
 from brand import NAME, DIVISION, TAGLINE, EMOJI
 
-def blocks(text):
+def blocks(text, command='help'):
     output = [{"type": "header", "text": {"type": "plain_text", "text": NAME + " | " + DIVISION}}]
     output.append({"type": "divider"})
     lines = text.splitlines()
@@ -15,5 +16,5 @@ def blocks(text):
             output.append({"type": "section", "text": {"type": "plain_text", "text": line[:2900] or " "}})
     if len(lines) > 40:
         output.append({"type": "section", "text": {"type": "plain_text", "text": "Additional rows omitted; filter by project."}})
-    output.append({"type": "context", "elements": [{"type": "mrkdwn", "text": EMOJI["ai"] + " " + TAGLINE}, {"type": "plain_text", "text": "Read-only snapshot | " + datetime.now(timezone.utc).isoformat(timespec="seconds")}]})
+    output.append({"type": "context", "elements": [{"type": "mrkdwn", "text": command_emoji(command) + " " + TAGLINE}, {"type": "plain_text", "text": "Read-only snapshot | " + datetime.now(timezone.utc).isoformat(timespec="seconds")}]})
     return output
