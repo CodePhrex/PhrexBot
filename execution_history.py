@@ -14,9 +14,11 @@ class ExecutionHistory:
                 ended REAL NOT NULL, outcome TEXT NOT NULL,
                 queue_seconds REAL NOT NULL, execution_seconds REAL NOT NULL
             )""")
+            if "failure_code" not in {row[1] for row in db.execute("PRAGMA table_info(executions)")}:
+                db.execute("ALTER TABLE executions ADD COLUMN failure_code TEXT")
             db.execute("CREATE INDEX IF NOT EXISTS execution_owner ON executions(team,owner,ended)")
 
-    def record(self, request_id, team, owner, outcome, queue_seconds, execution_seconds):
+    def record(self, request_id, team, owner, outcome, queue_seconds, execution_seconds, failure_code=None):
         if not re.fullmatch(r"[a-f0-9]{12}",request_id):
             raise ValueError("Invalid request ID")
         if not all(isinstance(x,str) and re.fullmatch(r"[A-Z0-9]{1,64}",x) for x in (team,owner)):
@@ -25,9 +27,11 @@ class ExecutionHistory:
             raise ValueError("Invalid outcome")
         if not all(isinstance(x,(int,float)) and math.isfinite(x) and x>=0 for x in (queue_seconds,execution_seconds)):
             raise ValueError("Invalid duration")
+        if failure_code not in {None,"timeout","connection","authorization","internal","delivery","cancelled"}:
+            raise ValueError("Invalid failure code")
         now=time()
         with closing(sqlite3.connect(self.path, timeout=5)) as db, db:
-            db.execute("INSERT INTO executions VALUES (?,?,?,?,?,?,?)",(request_id,team,owner,now,outcome,queue_seconds,execution_seconds))
+            db.execute("INSERT INTO executions (id,team,owner,ended,outcome,queue_seconds,execution_seconds,failure_code) VALUES (?,?,?,?,?,?,?,?)",(request_id,team,owner,now,outcome,queue_seconds,execution_seconds,failure_code))
             db.execute("DELETE FROM executions WHERE ended < ?",(now-30*86400,))
             db.execute("DELETE FROM executions WHERE id IN (SELECT id FROM executions ORDER BY ended DESC,id DESC LIMIT -1 OFFSET 10000)")
 

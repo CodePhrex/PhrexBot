@@ -64,6 +64,7 @@ def submit_inference(router, question, body, respond, audit, root_id=None):
         pulse = Thread(target=heartbeat, daemon=True, name='phrex-heartbeat')
         outcome = 'failed'
         retryable = False
+        failure_code = 'internal'
         try:
             registry.transition(request_id, 'executing')
             pulse.start()
@@ -92,16 +93,21 @@ def submit_inference(router, question, body, respond, audit, root_id=None):
                 answer = router.answer(question, body, progress=progress, on_chunk=on_chunk)
                 checkpoint()
                 outcome = 'completed'
+                failure_code = None
             except ExecutionCancelled:
                 outcome = 'cancelled'
+                failure_code = 'cancelled'
                 answer = 'Your intelligence request was cancelled.'
             except PermissionError:
+                failure_code = 'authorization'
                 answer = "Administrator access required."
             except (TimeoutError, requests.exceptions.Timeout):
+                failure_code = 'timeout'
                 retryable = True
                 audit.warning("natural intelligence unavailable")
                 answer = "The local intelligence request timed out. Please retry with a narrower question."
             except requests.exceptions.ConnectionError:
+                failure_code = 'connection'
                 retryable = True
                 audit.warning("natural intelligence unavailable")
                 answer = "The local intelligence service could not be reached. Check Ollama availability."
@@ -115,7 +121,11 @@ def submit_inference(router, question, body, respond, audit, root_id=None):
                     answer += f' Original request: {root_id}'
             done.set()
             with delivery_lock:
-                respond(**final_payload(answer, request_id, monotonic()-accepted))
+                try:
+                    respond(**final_payload(answer, request_id, monotonic()-accepted))
+                except Exception:
+                    failure_code = 'delivery'
+                    raise
         except Exception:
             outcome = 'failed'
             audit.warning("natural response delivery unavailable")
@@ -127,7 +137,7 @@ def submit_inference(router, question, body, respond, audit, root_id=None):
                     retry_policy.finish(root_id, not retryable)
             finally:
                 _slots.release()
-            record_execution(request_id, body.get('team_id'), body.get('user_id'), outcome, started-accepted, monotonic()-started, audit)
+            record_execution(request_id, body.get('team_id'), body.get('user_id'), outcome, started-accepted, monotonic()-started, audit, failure_code)
             audit.info("Inference elapsed seconds: %.2f", monotonic()-started)
     try:
         _pool.submit(work)
