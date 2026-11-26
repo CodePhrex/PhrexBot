@@ -41,7 +41,8 @@ class NaturalRouter:
         self.team,self.admins,self.repos,self.token,self.report = team,admins,repos,token,report
         self.gate=EventGate()
         self.slots=BoundedSemaphore(1)
-    def answer(self, question, body):
+    def answer(self, question, body, progress=None):
+        progress = progress or (lambda stage: None)
         user=body.get('user_id')
         team=body.get('team_id')
         if not self.team or team!=self.team or not user or user=='*' or user not in self.admins:
@@ -54,21 +55,26 @@ class NaturalRouter:
             evidence={'configured_projects':self.repos,'scope':'Configured repositories only; no complete roadmap or task history.'}
             q=question.lower()
             if re.fullmatch(r'(hello|hi|hey|thanks|thank you|how are you|hello, how are you)[.!? ]*',q.strip()):
+                progress('Waiting for Ollama inference')
                 return self.ai.answer(question,{},user_id=user,team_id=team,expected_team=self.team,administrators=self.admins)
+            progress('Searching project knowledge')
             try:
                 evidence['project_knowledge']=project_evidence(question,os.getenv('PHREX_PROJECT_DB'))
             except Exception:
                 evidence['project_knowledge']={'availability':'Registry unavailable'}
             if re.search(r'\b(pc|computer|host|ram|memory|cpu|disk|storage|uptime|network)\b',q):
+                progress('Collecting workstation telemetry')
                 try:
                     h=snapshot(user,team,self.team,self.admins)
                     evidence['host']={k:h[k] for k in ('host','os','captured_at','cpu_percent','logical_cpus','memory','uptime_seconds','disks')}
                 except Exception:
                     evidence['host']='Unavailable'
             if re.search(r'\b(github|builds?|progress|status|commits?|workflow|repositories)\b',q):
+                progress('Retrieving GitHub intelligence')
                 evidence['github_digest']=self.report('digest',dict(list(self.repos.items())[:10]),self.token)
                 evidence['github_progress']=self.report('progress',dict(list(self.repos.items())[:10]),self.token)
             if re.search(r'\b(github|commits?|releases?|builds?|progress|status|activity)\b',q):
+                progress('Retrieving targeted repository activity')
                 live=[]
                 for record in evidence.get('project_knowledge',{}).get('records',[])[:2]:
                     url=record.get('profile',{}).get('repository','')
@@ -82,6 +88,7 @@ class NaturalRouter:
                     except Exception:
                         live.append({'repository':match.group(1),'availability':'Unavailable'})
                 evidence['targeted_repository_activity']=live
+            progress('Waiting for Ollama inference')
             return self.ai.answer(question,evidence,user_id=user,team_id=team,expected_team=self.team,administrators=self.admins)
         finally:
             self.slots.release()
