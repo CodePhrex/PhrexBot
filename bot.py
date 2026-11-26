@@ -141,7 +141,7 @@ def main():
             return
         audit.info("authorized command received")
         result = report(body.get("text", ""), repos, token)
-        respond(text=result, blocks=blocks(result), response_type="ephemeral")
+        respond(text=result, blocks=blocks(result, body.get('text', '')), response_type="ephemeral")
     SocketModeHandler(app, os.environ["SLACK_APP_TOKEN"]).start()
 
 if __name__ == "__main__":
