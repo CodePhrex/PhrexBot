@@ -15,3 +15,8 @@ class EvidenceTests(unittest.TestCase):
             result=project_evidence('Tell me about Droid Lab',path)
             self.assertEqual(len(result['records']),1)
             self.assertEqual(result['records'][0]['classification'],'planned')
+
+            store.put('phrex','Phrex',{},'Plan')
+            store.put('phrexnet','PhrexNet',{},'Plan')
+            result=project_evidence('What is PhrexNet?',path)
+            self.assertEqual([r['alias'] for r in result['records']],['phrexnet'])
