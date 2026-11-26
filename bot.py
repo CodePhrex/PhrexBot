@@ -1,4 +1,5 @@
 import os
+import logging
 import json
 from pathlib import Path
 import re
@@ -131,11 +132,15 @@ def main():
     from slack_bolt import App
     from slack_bolt.adapter.socket_mode import SocketModeHandler
     team = os.environ["SLACK_TEAM_ID"]
-    users = set(os.environ["SLACK_ALLOWED_USERS"].split(","))
+    users = {u.strip() for u in os.environ["SLACK_ALLOWED_USERS"].split(",") if u.strip()}
     repos = parse_repos(os.environ["PHREX_REPOS"])
     token = os.environ["GITHUB_TOKEN"]
     if not team or not any(users) or not token:
         raise ValueError("Missing authorization configuration")
+    if not os.environ["SLACK_BOT_TOKEN"].startswith("xoxb-") or not os.environ["SLACK_APP_TOKEN"].startswith("xapp-"):
+        raise ValueError("Invalid Slack token type")
+    logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
+    audit = logging.getLogger("phrex.audit")
     app = App(token=os.environ["SLACK_BOT_TOKEN"])
     @app.action(re.compile(r"^open_repository_\d+$"))
     def open_repository(ack):
@@ -144,8 +149,10 @@ def main():
     def phrex(ack, body, respond):
         ack()
         if not authorized(body, team, users):
+            audit.warning("command denied")
             respond(text="Not authorized.", response_type="ephemeral")
             return
+        audit.info("authorized command received")
         result = report(body.get("text", ""), repos, token)
         respond(text=result, blocks=blocks(result), response_type="ephemeral")
     SocketModeHandler(app, os.environ["SLACK_APP_TOKEN"]).start()
