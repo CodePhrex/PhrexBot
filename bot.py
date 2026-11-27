@@ -213,12 +213,15 @@ def main():
         start_discovery(os.environ["PHREX_PROJECT_DB"], token, notify)
     from execution_retention import start_retention
     retention_stop = start_retention(audit)
+    from log_stream import start_log_stream
+    log_stop = start_log_stream(app.client, team)
     try:
         SocketModeHandler(app, os.environ["SLACK_APP_TOKEN"]).start()
     except Exception:
         audit.error("Application runtime failed")
         raise
     finally:
+        log_stop.set()
         retention_stop.set()
         audit.info("Application runtime stopped")
 
