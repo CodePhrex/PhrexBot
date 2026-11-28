@@ -169,3 +169,22 @@ class LogStreamTests(unittest.TestCase):
                 thread.call_args.kwargs["target"]()
             client.chat_postMessage.assert_not_called()
             self.assertEqual(load_bound_checkpoint(checkpoint, "T_TEST", "C0CM8QC7601"), initial)
+
+    def test_workspace_mismatch_never_posts_or_initializes(self):
+        from unittest.mock import Mock, patch
+        from tempfile import TemporaryDirectory
+        from pathlib import Path
+        from log_stream import start_log_stream
+        with TemporaryDirectory() as d:
+            root = Path(d)
+            (root / "logs").mkdir()
+            client = Mock()
+            client.auth_test.return_value = {"team_id": "T_OTHER"}
+            client.conversations_info.return_value = {"channel": {
+                "id": "C0CM8QC7601", "name": "phrex-logs",
+                "is_private": True, "is_member": True}}
+            with patch.dict("os.environ", {"PHREX_LOG_CHANNEL": "C0CM8QC7601"}), patch("log_stream.data_root", return_value=root), patch("log_stream.threading.Thread") as thread:
+                start_log_stream(client, "T_TEST")
+                thread.call_args.kwargs["target"]()
+            client.chat_postMessage.assert_not_called()
+            self.assertFalse((root / "logs" / "slack-C0CM8QC7601.json").exists())
