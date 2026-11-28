@@ -64,7 +64,16 @@ def start_log_stream(client, team):
                         return
                     # Persist before sending: ambiguous delivery is never replayed.
                     save_checkpoint(checkpoint, row)
-                    client.chat_postMessage(channel=channel, text=row[1] + " | " + row[2], mrkdwn=False, unfurl_links=False, unfurl_media=False)
+                    try:
+                        client.chat_postMessage(channel=channel, text=row[1] + " | " + row[2], mrkdwn=False, unfurl_links=False, unfurl_media=False)
+                    except Exception as exc:
+                        response = getattr(exc, "response", None)
+                        # HTTP 429 explicitly rejects delivery; restore the prior
+                        # cursor. Ambiguous transport failures remain consumed.
+                        if response is not None and getattr(response, "status_code", None) == 429:
+                            save_checkpoint(checkpoint, previous)
+                        raise
+                    previous = row
                     if stop.wait(1.1):
                         return
             except Exception as exc:

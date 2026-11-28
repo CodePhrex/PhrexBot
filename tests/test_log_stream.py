@@ -86,3 +86,33 @@ class LogStreamTests(unittest.TestCase):
             thread.call_args.kwargs["target"]()
             event.return_value.wait.assert_called_once_with(47)
         client.chat_postMessage.assert_not_called()
+
+    def test_delivery_checkpoint_on_rejection_or_ambiguity(self):
+        from unittest.mock import Mock, patch
+        from tempfile import TemporaryDirectory
+        from pathlib import Path
+        import json
+        from log_stream import start_log_stream, save_checkpoint
+        for status in (429, 503):
+            with self.subTest(status=status), TemporaryDirectory() as d:
+                root = Path(d)
+                folder = root / "logs"
+                folder.mkdir()
+                checkpoint = folder / "slack-C0CM8QC7601.json"
+                initial = ("", "", "")
+                save_checkpoint(checkpoint, initial)
+                line = "2026-11-26 05:30:06,097 INFO Runtime launch requested"
+                (folder / "runtime.log").write_text(line + "\n")
+                client = Mock()
+                client.auth_test.return_value = {"team_id": "T_TEST"}
+                client.conversations_info.return_value = {"channel": {"id": "C0CM8QC7601", "name": "phrex-logs", "is_private": True, "is_member": True}}
+                error = RuntimeError("delivery failed")
+                error.response = Mock(status_code=status, headers={"Retry-After": "47"})
+                client.chat_postMessage.side_effect = error
+                with patch.dict("os.environ", {"PHREX_LOG_CHANNEL": "C0CM8QC7601"}), patch("log_stream.data_root", return_value=root), patch("log_stream.threading.Thread") as thread, patch("log_stream.threading.Event") as event:
+                    event.return_value.is_set.side_effect = [False, False, True]
+                    start_log_stream(client, "T_TEST")
+                    thread.call_args.kwargs["target"]()
+                client.chat_postMessage.assert_called_once()
+                expected = initial if status == 429 else (line[:23], "runtime.log", line)
+                self.assertEqual(tuple(json.loads(checkpoint.read_text())), expected)
