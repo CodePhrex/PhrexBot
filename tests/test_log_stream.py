@@ -100,7 +100,7 @@ class LogStreamTests(unittest.TestCase):
                 folder.mkdir()
                 checkpoint = folder / "slack-C0CM8QC7601.json"
                 initial = ("", "", "")
-                save_checkpoint(checkpoint, initial)
+                save_checkpoint(checkpoint, {"team": "T_TEST", "channel": "C0CM8QC7601", "cursor": initial})
                 line = "2026-11-26 05:30:06,097 INFO Runtime launch requested"
                 (folder / "runtime.log").write_text(line + "\n")
                 client = Mock()
@@ -115,4 +115,21 @@ class LogStreamTests(unittest.TestCase):
                     thread.call_args.kwargs["target"]()
                 client.chat_postMessage.assert_called_once()
                 expected = initial if status == 429 else (line[:23], "runtime.log", line)
-                self.assertEqual(tuple(json.loads(checkpoint.read_text())), expected)
+                self.assertEqual(tuple(json.loads(checkpoint.read_text())["cursor"]), expected)
+
+    def test_checkpoint_destination_binding(self):
+        from tempfile import TemporaryDirectory
+        from pathlib import Path
+        from log_stream import save_checkpoint, load_bound_checkpoint
+        with TemporaryDirectory() as d:
+            path = Path(d) / "checkpoint.json"
+            cursor = ("", "", "")
+            self.assertIsNone(load_bound_checkpoint(path, "T_TEST", "C_TEST"))
+            save_checkpoint(path, cursor)
+            with self.assertRaises(ValueError):
+                load_bound_checkpoint(path, "T_TEST", "C_TEST")
+            save_checkpoint(path, {"team": "T_TEST", "channel": "C_TEST", "cursor": cursor})
+            self.assertEqual(load_bound_checkpoint(path, "T_TEST", "C_TEST"), cursor)
+            for team, channel in (("T_OTHER", "C_TEST"), ("T_TEST", "C_OTHER")):
+                with self.assertRaises(ValueError):
+                    load_bound_checkpoint(path, team, channel)

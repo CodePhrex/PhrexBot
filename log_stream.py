@@ -35,6 +35,18 @@ def save_checkpoint(checkpoint, row):
     tmp.replace(checkpoint)
 
 
+def load_bound_checkpoint(checkpoint, team, channel):
+    if not checkpoint.exists():
+        return None
+    state = json.loads(checkpoint.read_text(encoding="utf-8"))
+    if not isinstance(state, dict) or state.get("team") != team or state.get("channel") != channel:
+        raise ValueError("Unbound or mismatched log checkpoint")
+    cursor = state.get("cursor")
+    if not isinstance(cursor, list) or len(cursor) != 3 or not all(isinstance(v, str) for v in cursor):
+        raise ValueError("Invalid log checkpoint")
+    return tuple(cursor)
+
+
 def start_log_stream(client, team):
     stop = threading.Event()
     channel = os.getenv("PHREX_LOG_CHANNEL", "").strip()
@@ -44,6 +56,8 @@ def start_log_stream(client, team):
         return stop
     folder = data_root() / "logs"
     checkpoint = folder / ("slack-" + channel + ".json")
+    def persist(row):
+        save_checkpoint(checkpoint, {"team": team, "channel": channel, "cursor": row})
     def run():
         while not stop.is_set():
             delay = 10
@@ -53,17 +67,17 @@ def start_log_stream(client, team):
                 if auth["team_id"] != team or info.get("id") != channel or not info.get("is_private") or not info.get("is_member") or info.get("is_ext_shared") or info.get("is_shared") or info.get("name") != "phrex-logs":
                     return
                 rows = entries(folder)
-                previous = tuple(json.loads(checkpoint.read_text())) if checkpoint.exists() else None
+                previous = load_bound_checkpoint(checkpoint, team, channel)
                 pending = [r for r in rows if previous is None or r > previous]
                 if previous is None:
-                    save_checkpoint(checkpoint, rows[-1] if rows else ("", "", ""))
+                    persist(rows[-1] if rows else ("", "", ""))
                     stop.wait(delay)
                     continue
                 for row in pending[:25]:
                     if stop.is_set():
                         return
                     # Persist before sending: ambiguous delivery is never replayed.
-                    save_checkpoint(checkpoint, row)
+                    persist(row)
                     try:
                         client.chat_postMessage(channel=channel, text=row[1] + " | " + row[2], mrkdwn=False, unfurl_links=False, unfurl_media=False)
                     except Exception as exc:
@@ -71,7 +85,7 @@ def start_log_stream(client, team):
                         # HTTP 429 explicitly rejects delivery; restore the prior
                         # cursor. Ambiguous transport failures remain consumed.
                         if response is not None and getattr(response, "status_code", None) == 429:
-                            save_checkpoint(checkpoint, previous)
+                            persist(previous)
                         raise
                     previous = row
                     if stop.wait(1.1):
