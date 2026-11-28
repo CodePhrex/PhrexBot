@@ -1,4 +1,4 @@
-﻿import unittest
+import unittest
 from log_stream import approved
 class LogStreamTests(unittest.TestCase):
     def test_allowlist(self):
@@ -30,3 +30,17 @@ class LogStreamTests(unittest.TestCase):
             save_checkpoint(path, ('second', 'runtime.log', 'event'))
             self.assertEqual(json.loads(path.read_text()), ['second', 'runtime.log', 'event'])
             self.assertFalse(path.with_suffix('.tmp').exists())
+
+    def test_empty_checkpoint_is_durable(self):
+        from tempfile import TemporaryDirectory
+        from pathlib import Path
+        import json
+        from log_stream import save_checkpoint, entries
+        with TemporaryDirectory() as d:
+            folder = Path(d)
+            checkpoint = folder / "checkpoint.json"
+            save_checkpoint(checkpoint, ("", "", ""))
+            row = "2026-11-26 05:30:06,097 INFO Runtime launch requested"
+            (folder / "runtime.log").write_text(row + "\n")
+            previous = tuple(json.loads(checkpoint.read_text()))
+            self.assertEqual(len([r for r in entries(folder) if r > previous]), 1)

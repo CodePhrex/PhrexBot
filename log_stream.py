@@ -1,4 +1,4 @@
-﻿"""Opt-in, private-channel operational log forwarding."""
+"""Opt-in, private-channel operational log forwarding."""
 import os
 import re
 import json
@@ -56,8 +56,7 @@ def start_log_stream(client, team):
                 previous = tuple(json.loads(checkpoint.read_text())) if checkpoint.exists() else None
                 pending = [r for r in rows if previous is None or r > previous]
                 if previous is None:
-                    if rows:
-                        save_checkpoint(checkpoint, rows[-1])
+                    save_checkpoint(checkpoint, rows[-1] if rows else ("", "", ""))
                     stop.wait(delay)
                     continue
                 for row in pending[:25]:
