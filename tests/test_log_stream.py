@@ -133,3 +133,17 @@ class LogStreamTests(unittest.TestCase):
             for team, channel in (("T_OTHER", "C_TEST"), ("T_TEST", "C_OTHER")):
                 with self.assertRaises(ValueError):
                     load_bound_checkpoint(path, team, channel)
+
+    def test_malformed_retry_after_does_not_kill_worker(self):
+        from unittest.mock import Mock, patch
+        from log_stream import start_log_stream
+        client = Mock()
+        error = RuntimeError("rate limited")
+        error.response = Mock(status_code=429, headers={"Retry-After": "invalid"})
+        client.auth_test.side_effect = error
+        with patch.dict("os.environ", {"PHREX_LOG_CHANNEL": "C0CM8QC7601", "LOCALAPPDATA": "."}), patch("log_stream.threading.Thread") as thread, patch("log_stream.threading.Event") as event:
+            event.return_value.is_set.side_effect = [False, True]
+            start_log_stream(client, "T_TEST")
+            thread.call_args.kwargs["target"]()
+            event.return_value.wait.assert_called_once_with(30)
+        client.chat_postMessage.assert_not_called()
