@@ -58,13 +58,18 @@ def start_log_stream(client, team):
     checkpoint = folder / ("slack-" + channel + ".json")
     def persist(row):
         save_checkpoint(checkpoint, {"team": team, "channel": channel, "cursor": row})
+    def destination_verified():
+        auth = client.auth_test()
+        info = client.conversations_info(channel=channel)["channel"]
+        return (auth["team_id"] == team and info.get("id") == channel
+                and info.get("is_private") is True and info.get("is_member") is True
+                and not info.get("is_ext_shared") and not info.get("is_shared")
+                and info.get("name") == "phrex-logs")
     def run():
         while not stop.is_set():
             delay = 10
             try:
-                auth = client.auth_test()
-                info = client.conversations_info(channel=channel)["channel"]
-                if auth["team_id"] != team or info.get("id") != channel or not info.get("is_private") or not info.get("is_member") or info.get("is_ext_shared") or info.get("is_shared") or info.get("name") != "phrex-logs":
+                if not destination_verified():
                     return
                 rows = entries(folder)
                 previous = load_bound_checkpoint(checkpoint, team, channel)
@@ -75,6 +80,8 @@ def start_log_stream(client, team):
                     continue
                 for row in pending[:25]:
                     if stop.is_set():
+                        return
+                    if not destination_verified():
                         return
                     # Persist before sending: ambiguous delivery is never replayed.
                     persist(row)

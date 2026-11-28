@@ -147,3 +147,25 @@ class LogStreamTests(unittest.TestCase):
             thread.call_args.kwargs["target"]()
             event.return_value.wait.assert_called_once_with(30)
         client.chat_postMessage.assert_not_called()
+    def test_privacy_revoked_before_send_preserves_cursor(self):
+        from unittest.mock import Mock, patch
+        from tempfile import TemporaryDirectory
+        from pathlib import Path
+        from log_stream import start_log_stream, save_checkpoint, load_bound_checkpoint
+        with TemporaryDirectory() as d:
+            root = Path(d)
+            folder = root / "logs"
+            folder.mkdir()
+            checkpoint = folder / "slack-C0CM8QC7601.json"
+            initial = ("", "", "")
+            save_checkpoint(checkpoint, {"team": "T_TEST", "channel": "C0CM8QC7601", "cursor": initial})
+            (folder / "runtime.log").write_text("2026-11-26 05:30:06,097 INFO Runtime launch requested\n")
+            client = Mock()
+            client.auth_test.return_value = {"team_id": "T_TEST"}
+            info = {"id": "C0CM8QC7601", "name": "phrex-logs", "is_private": True, "is_member": True}
+            client.conversations_info.side_effect = [{"channel": info}, {"channel": dict(info, is_private=False)}]
+            with patch.dict("os.environ", {"PHREX_LOG_CHANNEL": "C0CM8QC7601"}), patch("log_stream.data_root", return_value=root), patch("log_stream.threading.Thread") as thread:
+                start_log_stream(client, "T_TEST")
+                thread.call_args.kwargs["target"]()
+            client.chat_postMessage.assert_not_called()
+            self.assertEqual(load_bound_checkpoint(checkpoint, "T_TEST", "C0CM8QC7601"), initial)
