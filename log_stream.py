@@ -93,7 +93,10 @@ def start_log_stream(client, team):
             except Exception as exc:
                 response = getattr(exc, "response", None)
                 if response is not None and getattr(response, "status_code", None) == 429:
-                    delay = max(10, int(response.headers.get("Retry-After", 30)))
+                    try:
+                        delay = max(10, int(response.headers.get("Retry-After", 30)))
+                    except (TypeError, ValueError, AttributeError):
+                        delay = 30
                 else:
                     delay = 30
             stop.wait(delay)
