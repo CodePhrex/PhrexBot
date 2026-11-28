@@ -44,3 +44,31 @@ class LogStreamTests(unittest.TestCase):
             (folder / "runtime.log").write_text(row + "\n")
             previous = tuple(json.loads(checkpoint.read_text()))
             self.assertEqual(len([r for r in entries(folder) if r > previous]), 1)
+
+    def test_privacy_failure_never_posts(self):
+        from unittest.mock import Mock, patch
+        from log_stream import start_log_stream
+        for channel_info in (
+            {"id": "C0CM8QC7601", "is_private": False, "is_member": True},
+            {"id": "C0CM8QC7601", "is_private": True, "is_member": True, "is_ext_shared": True},
+        ):
+            client = Mock()
+            client.auth_test.return_value = {"team_id": "T_TEST"}
+            client.conversations_info.return_value = {"channel": channel_info}
+            with patch.dict("os.environ", {"PHREX_LOG_CHANNEL": "C0CM8QC7601"}), patch("log_stream.threading.Thread") as thread:
+                start_log_stream(client, "T_TEST")
+                thread.call_args.kwargs["target"]()
+            client.chat_postMessage.assert_not_called()
+
+    def test_missing_privacy_permission_never_posts(self):
+        from unittest.mock import Mock, patch
+        from log_stream import start_log_stream
+        client = Mock()
+        client.auth_test.return_value = {"team_id": "T_TEST"}
+        client.conversations_info.side_effect = RuntimeError("missing_scope")
+        with patch.dict("os.environ", {"PHREX_LOG_CHANNEL": "C0CM8QC7601"}), patch("log_stream.threading.Thread") as thread, patch("log_stream.threading.Event") as event:
+            event.return_value.is_set.side_effect = [False, True]
+            start_log_stream(client, "T_TEST")
+            thread.call_args.kwargs["target"]()
+            event.return_value.wait.assert_called_once_with(30)
+        client.chat_postMessage.assert_not_called()
