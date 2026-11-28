@@ -49,13 +49,13 @@ class LogStreamTests(unittest.TestCase):
         from unittest.mock import Mock, patch
         from log_stream import start_log_stream
         for channel_info in (
-            {"id": "C0CM8QC7601", "is_private": False, "is_member": True},
-            {"id": "C0CM8QC7601", "is_private": True, "is_member": True, "is_ext_shared": True},
+            {"id": "C0CM8QC7601", "name": "phrex-logs", "is_private": False, "is_member": True},
+            {"id": "C0CM8QC7601", "name": "phrex-logs", "is_private": True, "is_member": True, "is_ext_shared": True},
         ):
             client = Mock()
             client.auth_test.return_value = {"team_id": "T_TEST"}
             client.conversations_info.return_value = {"channel": channel_info}
-            with patch.dict("os.environ", {"PHREX_LOG_CHANNEL": "C0CM8QC7601"}), patch("log_stream.threading.Thread") as thread:
+            with patch.dict("os.environ", {"PHREX_LOG_CHANNEL": "C0CM8QC7601", "LOCALAPPDATA": "."}), patch("log_stream.threading.Thread") as thread:
                 start_log_stream(client, "T_TEST")
                 thread.call_args.kwargs["target"]()
             client.chat_postMessage.assert_not_called()
@@ -66,9 +66,23 @@ class LogStreamTests(unittest.TestCase):
         client = Mock()
         client.auth_test.return_value = {"team_id": "T_TEST"}
         client.conversations_info.side_effect = RuntimeError("missing_scope")
-        with patch.dict("os.environ", {"PHREX_LOG_CHANNEL": "C0CM8QC7601"}), patch("log_stream.threading.Thread") as thread, patch("log_stream.threading.Event") as event:
+        with patch.dict("os.environ", {"PHREX_LOG_CHANNEL": "C0CM8QC7601", "LOCALAPPDATA": "."}), patch("log_stream.threading.Thread") as thread, patch("log_stream.threading.Event") as event:
             event.return_value.is_set.side_effect = [False, True]
             start_log_stream(client, "T_TEST")
             thread.call_args.kwargs["target"]()
             event.return_value.wait.assert_called_once_with(30)
+        client.chat_postMessage.assert_not_called()
+
+    def test_rate_limit_retry_after(self):
+        from unittest.mock import Mock, patch
+        from log_stream import start_log_stream
+        client = Mock()
+        error = RuntimeError("rate limited")
+        error.response = Mock(status_code=429, headers={"Retry-After": "47"})
+        client.auth_test.side_effect = error
+        with patch.dict("os.environ", {"PHREX_LOG_CHANNEL": "C0CM8QC7601", "LOCALAPPDATA": "."}), patch("log_stream.threading.Thread") as thread, patch("log_stream.threading.Event") as event:
+            event.return_value.is_set.side_effect = [False, True]
+            start_log_stream(client, "T_TEST")
+            thread.call_args.kwargs["target"]()
+            event.return_value.wait.assert_called_once_with(47)
         client.chat_postMessage.assert_not_called()
